@@ -47,3 +47,4 @@ my_church/
 ├── requirements.txt             # Dependencias Python
 └── README.md
 
+Estructura de directorios
