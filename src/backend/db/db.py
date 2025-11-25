@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional, Tuple
 
 
-DEFAULT_DB_DIR = Path(__file__).resolve().parents[2] / "data"
+DEFAULT_DB_DIR = Path(__file__).resolve().parents[3] / "data"
 DEFAULT_DB_FILE = DEFAULT_DB_DIR / "renuevo.db"
 
 
