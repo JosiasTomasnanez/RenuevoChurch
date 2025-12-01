@@ -16,23 +16,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Configurar Python
+      # 2️⃣ Configurar Python 3.13
       - name: Set up Python 3.13
         uses: actions/setup-python@v4
         with:
           python-version: 3.13
 
-      # 3️⃣ Crear y activar entorno virtual
-      - name: Create virtual environment
+      # 3️⃣ Crear virtual environment e instalar dependencias desde requirements.txt
+      - name: Set up virtual environment
         run: |
           python -m venv venv
-          source venv/bin/activate
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          ./venv/bin/python -m pip install --upgrade pip
+          ./venv/bin/python -m pip install -r requirements.txt
 
       # 4️⃣ Ejecutar tests con PYTHONPATH=.
       - name: Run tests
         run: |
-          source venv/bin/activate
-          PYTHONPATH=. pytest -s
+          PYTHONPATH=. ./venv/bin/python -m pytest -s
 
