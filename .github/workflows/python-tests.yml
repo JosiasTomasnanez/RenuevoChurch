@@ -1,0 +1,38 @@
+# .github/workflows/python-tests.yml
+name: Python Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout del código
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2️⃣ Configurar Python
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.13
+
+      # 3️⃣ Crear y activar entorno virtual
+      - name: Create virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # 4️⃣ Ejecutar tests con PYTHONPATH=.
+      - name: Run tests
+        run: |
+          source venv/bin/activate
+          PYTHONPATH=. pytest -s
+
