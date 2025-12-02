@@ -45,7 +45,9 @@ def test_get_people_by_neighborhood_monkeypatch(monkeypatch):
     person = result[0]
     assert isinstance(person, Person)
     assert person.first_name == "Ana"
-    assert person.neighborhood == "Belgrano"
+    # address is now a nested object
+    assert person.address is not None
+    assert person.address.neighborhood == "Belgrano"
     assert called["neighborhood"] == "Belgrano"
     assert called["partial"] is False
 
@@ -65,5 +67,8 @@ def test_get_people_by_ministry_monkeypatch(monkeypatch):
     assert len(result) == 1
     person = result[0]
     assert isinstance(person, Person)
-    assert person.ministry_id == 2
-    assert person.ministry_area == "Worship"
+    # ministry area and ministry are now nested objects
+    assert person.ministry is not None
+    assert person.ministry.ministry_id == 2
+    assert person.ministry_area is not None
+    assert person.ministry_area.area == "Worship"

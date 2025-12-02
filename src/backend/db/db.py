@@ -148,11 +148,19 @@ def _get_schema_statements() -> List[str]:
         )
         """,
 
+        # Ministry table
+        """
+        CREATE TABLE IF NOT EXISTS ministry (
+            ministry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        )
+        """,
+
         # Ministry areas
         """
         CREATE TABLE IF NOT EXISTS ministry_area (
             area_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ministry_id INTEGER,
+            ministry_id INTEGER REFERENCES ministry(ministry_id) ON DELETE SET NULL,
             area TEXT NOT NULL
         )
         """,
