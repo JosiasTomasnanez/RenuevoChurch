@@ -31,6 +31,22 @@ def _seed_db(db: Database):
         (addr_id, area_id, "Ana", "Gomez", "ana@example.com", 12345678, "555-1111"),
     )
 
+    # add a second person that begins with a special-character surname
+    person_id_2 = db.insert(
+        """
+        INSERT INTO person (
+            address_id,
+            ministry_area_id,
+            first_name,
+            last_name,
+            email,
+            dni,
+            phone_number
+        ) VALUES (?,?,?,?,?,?,?)
+        """,
+        (addr_id, area_id, "Jose", "Ñañez", "jose@example.com", 87654321, "555-2222"),
+    )
+
     return addr_id, area_id, person_id, min_id
 
 
@@ -81,4 +97,23 @@ def test_repository_queries_against_temp_db(tmp_path, monkeypatch):
     print(f"Partial neighborhood 'elgra' -> {len(rows_partial)} row(s)")
     print(f"Ministry id 1 -> {len(rows_ministry)} row(s)")
     print("Area/ministry lookup ->", info)
+
+    # Query people by name (prefix semantics)
+    rows_name_prefix = person_repository.find_people_by_name("An", partial=True)
+    assert isinstance(rows_name_prefix, list)
+    assert len(rows_name_prefix) == 1
+
+    # a substring that does not match the start should not return results
+    rows_name_sub = person_repository.find_people_by_name("na", partial=True)
+    assert isinstance(rows_name_sub, list)
+    assert len(rows_name_sub) == 0
+
+    # exact match
+    rows_name_exact = person_repository.find_people_by_name("Ana", partial=False)
+    assert len(rows_name_exact) == 1
+
+    # special-case: prefix search with 'ña' should match last_name 'Ñañez'
+    rows_name_ña = person_repository.find_people_by_name("ña", partial=True)
+    assert len(rows_name_ña) == 1
+    assert rows_name_ña[0]["person"]["last_name"] == "Ñañez"
 

@@ -3,4 +3,9 @@
 # Testing
 pytest
 
+# NOTE: Tkinter is a system package (GUI toolkit). Install on Debian/Ubuntu with:
+#   sudo apt install python3-tk
+# It cannot be installed via pip in most environments. The frontend GUI requires
+# this system package to run (tkinter/_tkinter native extension).
+
 
