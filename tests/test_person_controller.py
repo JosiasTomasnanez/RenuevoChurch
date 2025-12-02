@@ -23,7 +23,9 @@ def test_controller_search_calls_name_service(monkeypatch):
             called['partial'] = partial
             return [SAMPLE_ROW]
 
-    services = FakeService()
+    # services object should have a .people attribute (matching app.services)
+    from types import SimpleNamespace
+    services = SimpleNamespace(people=FakeService())
     ctrl = PersonController(db=None, services=services)
 
     results = ctrl.search('Ana')
@@ -47,7 +49,8 @@ def test_controller_search_empty_returns_all(monkeypatch):
             called['all'] = True
             return [SAMPLE_ROW]
 
-    services = FakeService()
+    from types import SimpleNamespace
+    services = SimpleNamespace(people=FakeService())
     ctrl = PersonController(db=None, services=services)
 
     results = ctrl.search('')

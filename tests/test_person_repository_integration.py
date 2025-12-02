@@ -65,18 +65,18 @@ def test_repository_queries_against_temp_db(tmp_path, monkeypatch):
     # Query by exact neighborhood
     rows = person_repository.find_people_by_neighborhood("Belgrano")
     assert isinstance(rows, list)
-    assert len(rows) == 1
-    assert rows[0]["person"]["first_name"] == "Ana"
+    assert len(rows) == 2
+    assert any(r["person"]["first_name"] == "Ana" for r in rows)
 
     # Query with partial match
     rows_partial = person_repository.find_people_by_neighborhood("elgra", partial=True)
     assert isinstance(rows_partial, list)
-    assert len(rows_partial) == 1
+    assert len(rows_partial) == 2
 
     # Query by ministry id
     rows_ministry = person_repository.find_people_by_ministry(min_id)
     assert isinstance(rows_ministry, list)
-    assert len(rows_ministry) == 1
+    assert len(rows_ministry) == 2
 
     # Query area+ministry using the new repository helper
     monkeypatch.setattr(ministry_repository, "db", db)

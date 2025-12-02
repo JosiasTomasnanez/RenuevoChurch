@@ -104,7 +104,8 @@ def test_get_all_people_monkeypatch(monkeypatch):
         called['all'] = True
         return [SAMPLE_ROW]
 
-    monkeypatch.setattr("src.backend.services.people.find_all_people", fake_all)
+    # get_all_people imports find_all_people from the repositories module
+    monkeypatch.setattr("src.backend.db.repositories.find_all_people", fake_all)
 
     result = get_all_people()
     assert isinstance(result, list)
