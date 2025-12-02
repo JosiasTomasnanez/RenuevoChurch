@@ -167,26 +167,22 @@ def test_delete_person_shared_address(tmp_path):
     addr = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
     assert addr is not None
 
-    # -------- Test delete behavior from repository --------
-    # delete the first person (Ana) — because Jose still references the
-    # same address the address should remain
-    deleted = person_repository.delete_person(person_id)
+    # -------- Test delete behavior from repository module-level helper --------
+    # delete the first person (p1) — because p2 still references the same
+    # address the address should remain
+    deleted = person_repository.delete_person(p1)
     assert deleted is True
 
     remaining = person_repository.find_all_people()
     assert len(remaining) == 1
 
-    # address still exists because Jose still references it
+    # address still exists because p2 still references it
     addr_row = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
     assert addr_row is not None
 
-    # delete the remaining person (find id first) — this should remove
-    # the person and the address since no other person references it
-    second = db.query_one("SELECT person_id FROM person WHERE last_name = ?", ("Ñañez",))
-    assert second is not None
-    second_id = second.get("person_id") if hasattr(second, "get") else second[0]
-
-    deleted2 = person_repository.delete_person(second_id)
+    # delete the remaining person (p2) — this should remove the person and
+    # the address since no other person references it
+    deleted2 = person_repository.delete_person(p2)
     assert deleted2 is True
 
     final_people = person_repository.find_all_people()
