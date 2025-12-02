@@ -165,6 +165,56 @@ class PersonController:
 		return True
 
 
+	def delete_person(self, person_id: int) -> bool:
+		"""Delete a person using the people service if available.
+
+		Returns True if delete succeeded, False otherwise.
+		"""
+		if person_id is None:
+			return False
+
+		# Prefer service-level delete helper if available
+		try:
+			if getattr(self, "services", None) and getattr(self.services, "people", None):
+				return bool(self.services.people.delete_person(person_id))
+		except Exception:
+			logger.exception("delete_person service errored")
+
+		# Fallback: perform a direct DB delete similar to repository behaviour
+		try:
+			# fetch address id to potentially remove the address as well
+			cur = self.db.query_one("SELECT address_id FROM person WHERE person_id = ?", (person_id,))
+			addr_id = None
+			if cur:
+				try:
+					addr_id = cur.get("address_id")
+				except Exception:
+					try:
+						addr_id = cur["address_id"]
+					except Exception:
+						addr_id = None
+
+			self.db.execute("DELETE FROM person WHERE person_id = ?", (person_id,))
+			if addr_id is not None:
+				other = self.db.query_one("SELECT COUNT(1) AS cnt FROM person WHERE address_id = ?", (addr_id,))
+				cnt = 0
+				if other:
+					try:
+						cnt = int(other.get("cnt") or 0)
+					except Exception:
+						try:
+							cnt = int(other["cnt"] or 0)
+						except Exception:
+							cnt = 0
+				if cnt == 0:
+					self.db.execute("DELETE FROM address WHERE address_id = ?", (addr_id,))
+
+			return True
+		except Exception:
+			logger.exception("fallback delete_person failed")
+			return False
+
+
 # module level singleton / helper
 _ctrl: Optional[PersonController] = None
 

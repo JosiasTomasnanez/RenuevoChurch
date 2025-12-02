@@ -117,3 +117,82 @@ def test_repository_queries_against_temp_db(tmp_path, monkeypatch):
     assert len(rows_name_ña) == 1
     assert rows_name_ña[0]["person"]["last_name"] == "Ñañez"
 
+
+def test_delete_person_removes_orphan_address(tmp_path):
+    """Verify delete_person removes the person and deletes an orphaned address
+    but does not delete an address shared by other people.
+    """
+    db_file = tmp_path / "del.db"
+    db = Database(path=db_file)
+    db.initialize_schema()
+
+    # create a unique address and person
+    addr_id = db.insert("INSERT INTO address (street, neighborhood, house_number) VALUES (?,?,?)", ("Solo St", "Uno", 1))
+    pid = db.insert("INSERT INTO person (address_id, first_name) VALUES (?,?)", (addr_id, "Solo"))
+
+    # delete the person; since address is unique it should be removed too
+    # ensure the repository module uses this db instance
+    from src.backend.db.repositories import person_repository as repo
+    repo.db = db
+
+    ok = repo.delete_person(pid)
+    assert ok is True
+
+    row = db.query_one("SELECT * FROM person WHERE person_id = ?", (pid,))
+    assert row is None
+
+    addr = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
+    assert addr is None
+
+
+def test_delete_person_shared_address(tmp_path):
+    """If two people share the same address, deleting one should not remove the address."""
+    db_file = tmp_path / "shared.db"
+    db = Database(path=db_file)
+    db.initialize_schema()
+
+    addr_id = db.insert("INSERT INTO address (street, neighborhood, house_number) VALUES (?,?,?)", ("Shared St", "Dos", 2))
+    p1 = db.insert("INSERT INTO person (address_id, first_name) VALUES (?,?)", (addr_id, "A"))
+    p2 = db.insert("INSERT INTO person (address_id, first_name) VALUES (?,?)", (addr_id, "B"))
+
+    from src.backend.db.repositories import person_repository as repo
+    repo.db = db
+
+    ok = repo.delete_person(p1)
+    assert ok is True
+
+    remaining = db.query_one("SELECT * FROM person WHERE person_id = ?", (p2,))
+    assert remaining is not None
+
+    addr = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
+    assert addr is not None
+
+    # -------- Test delete behavior from repository --------
+    # delete the first person (Ana) — because Jose still references the
+    # same address the address should remain
+    deleted = person_repository.delete_person(person_id)
+    assert deleted is True
+
+    remaining = person_repository.find_all_people()
+    assert len(remaining) == 1
+
+    # address still exists because Jose still references it
+    addr_row = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
+    assert addr_row is not None
+
+    # delete the remaining person (find id first) — this should remove
+    # the person and the address since no other person references it
+    second = db.query_one("SELECT person_id FROM person WHERE last_name = ?", ("Ñañez",))
+    assert second is not None
+    second_id = second.get("person_id") if hasattr(second, "get") else second[0]
+
+    deleted2 = person_repository.delete_person(second_id)
+    assert deleted2 is True
+
+    final_people = person_repository.find_all_people()
+    assert len(final_people) == 0
+
+    # address should now be gone
+    addr_row2 = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
+    assert addr_row2 is None
+

@@ -153,3 +153,19 @@ def test_get_people_by_name_trims_and_lower(monkeypatch):
     get_people_by_name("  JoE  ")
     # service sends stripped (but not lowercased) value to repository
     assert called['name'] == 'JoE'
+
+
+def test_delete_person_monkeypatch(monkeypatch):
+    called = {}
+
+    def fake_delete(pid):
+        called['pid'] = pid
+        return True
+
+    monkeypatch.setattr("src.backend.db.repositories.delete_person", fake_delete)
+
+    from src.backend.services.people import delete_person
+
+    ok = delete_person(42)
+    assert ok is True
+    assert called['pid'] == 42

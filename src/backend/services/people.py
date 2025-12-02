@@ -97,3 +97,19 @@ def get_area_and_ministry_service(area_id: int):
 
 __all__.append("get_area_and_ministry_service")
 
+
+def delete_person(person_id: int) -> bool:
+	"""Delete a person by id using repository helpers.
+
+	Returns True when deletion succeeded (person removed), False otherwise.
+	"""
+	try:
+		from ..db.repositories import delete_person as _repo_delete
+
+		return bool(_repo_delete(person_id))
+	except Exception:
+		return False
+
+
+__all__.append("delete_person")
+

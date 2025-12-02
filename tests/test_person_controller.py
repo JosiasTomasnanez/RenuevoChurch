@@ -57,3 +57,45 @@ def test_controller_search_empty_returns_all(monkeypatch):
     assert isinstance(results, list)
     assert len(results) == 1
     assert called.get('all') is True
+
+
+def test_controller_delete_calls_service(monkeypatch):
+    called = {}
+
+    class FakeService:
+        def delete_person(self, pid):
+            called['pid'] = pid
+            return True
+
+    from types import SimpleNamespace
+    services = SimpleNamespace(people=FakeService())
+    ctrl = PersonController(db=None, services=services)
+
+    ok = ctrl.delete_person(5)
+    assert ok is True
+    assert called['pid'] == 5
+
+
+def test_controller_delete_fallback(monkeypatch, tmp_path):
+    # Use a real temporary DB for fallback path
+    from src.backend.db.db import Database
+
+    db_file = tmp_path / "test.db"
+    db = Database(path=db_file)
+    db.initialize_schema()
+
+    # insert an address and person
+    addr_id = db.insert("INSERT INTO address (street, neighborhood, house_number) VALUES (?,?,?)", ("Calle", "X", 1))
+    pid = db.insert("INSERT INTO person (address_id, first_name) VALUES (?,?)", (addr_id, "Tom"))
+
+    # construct controller that will exercise fallback delete
+    ctrl = PersonController(db=db, services=None)
+    ok = ctrl.delete_person(pid)
+    assert ok is True
+
+    # person should be gone
+    row = db.query_one("SELECT * FROM person WHERE person_id = ?", (pid,))
+    assert row is None
+    # address should be removed because no other person references it
+    addr = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
+    assert addr is None

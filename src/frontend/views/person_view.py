@@ -209,11 +209,14 @@ class SearchPersonFrame(BaseFrame):
 
 
 class ModifyPersonFrame(BaseFrame):
-	def __init__(self, master, controller, **kwargs):
+	def __init__(self, master, controller, on_deleted_callback: Optional[callable] = None, **kwargs):
 		if tk is None:
 			raise RuntimeError("Tkinter not available in this environment — run GUI on a machine with Tk installed")
 		super().__init__(master, **kwargs)
 		self.controller = controller
+		# optional callback to notify parent that a deletion happened
+		# This callback should be a callable taking no arguments.
+		self._on_deleted_cb = on_deleted_callback
 		self._build()
 
 	def _build(self):
@@ -244,7 +247,13 @@ class ModifyPersonFrame(BaseFrame):
 			ent.grid(row=i, column=1, sticky="w", padx=6, pady=3)
 			self.form[key] = ent
 
-		tk.Button(frm, text="Guardar cambios", command=self._on_save).grid(row=len(fields), column=0, columnspan=2, pady=(10, 0))
+		# Buttons: Save and Delete side-by-side
+		btn_save = tk.Button(frm, text="Guardar cambios", command=self._on_save)
+		btn_save.grid(row=len(fields), column=0, sticky="e", padx=(0, 6), pady=(10, 0))
+
+		btn_delete = tk.Button(frm, text="Eliminar", fg="white", bg="#c0392b", command=self._on_delete)
+		btn_delete.grid(row=len(fields), column=1, sticky="w", pady=(10, 0))
+
 
 	def _on_load(self):
 		pid = self.id_entry.get().strip()
@@ -308,6 +317,43 @@ class ModifyPersonFrame(BaseFrame):
 			messagebox.showinfo("OK", "Actualizado")
 		else:
 			messagebox.showerror("Error", "No se pudo actualizar")
+
+	def _on_delete(self):
+		pid = self.id_entry.get().strip()
+		if not pid:
+			messagebox.showerror("Error", "Carga un person_id primero")
+			return
+		try:
+			pid_int = int(pid)
+		except Exception:
+			messagebox.showerror("Error", "person_id debe ser numerico")
+			return
+
+		ok = messagebox.askyesno("Confirmar eliminación", "¿Está seguro que desea eliminar esta persona? Esta acción es irreversible.")
+		if not ok:
+			return
+
+		try:
+			res = self.controller.delete_person(pid_int)
+		except Exception as exc:
+			messagebox.showerror("Error", str(exc))
+			return
+
+		if res:
+			messagebox.showinfo("Eliminado", "Persona eliminada satisfactoriamente")
+			# clear form fields and id
+			self.id_entry.delete(0, "end")
+			for ent in self.form.values():
+				ent.delete(0, "end")
+			# notify parent/UI that a deletion happened so e.g. search list can refresh
+			try:
+				if getattr(self, "_on_deleted_cb", None):
+					self._on_deleted_cb()
+			except Exception:
+				# swallow errors in UI callback
+				pass
+		else:
+			messagebox.showerror("Error", "No se pudo eliminar la persona")
 
 
 __all__ = ["AddPersonFrame", "SearchPersonFrame", "ModifyPersonFrame"]

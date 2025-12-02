@@ -59,10 +59,16 @@ def _build_main_window(app):
 			self.frames["modify"] = ModifyPersonFrame(container, controller=self.controller)
 
 			# wire the search frame so it can open the modify frame directly
+			# wire callbacks between frames: search can load modify, and modify
+			# notifies search when a deletion happens so the list refreshes.
 			try:
 				search_frame = self.frames.get("search")
+				modify_frame = self.frames.get("modify")
 				if search_frame is not None:
 					search_frame._open_modify_cb = self._open_modify
+				if modify_frame is not None:
+					# pass search refresh function into modify so it can notify
+					modify_frame._on_deleted_cb = lambda: search_frame._on_search()
 			except Exception:
 				# be permissive if the widget doesn't expose expected internals
 				pass

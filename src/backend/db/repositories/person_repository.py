@@ -319,4 +319,55 @@ def find_all_people() -> List[Dict]:
     return results
 
 
-__all__ = ["find_people_by_neighborhood", "find_people_by_ministry", "find_people_by_name"]
+def delete_person(person_id: int) -> bool:
+    """Delete a person row by id and, if the person had a private address
+    that isn't referenced by any other person, remove that address as well.
+
+    Returns True when a person row was deleted, False otherwise.
+    """
+    if person_id is None:
+        return False
+
+    # Fetch the person's address_id (if any) so we can conditionally
+    # remove an orphaned address later.
+    cur = db.query_one("SELECT address_id FROM person WHERE person_id = ?", (person_id,))
+    addr_id = None
+    if cur:
+        try:
+            addr_id = cur.get("address_id")
+        except Exception:
+            try:
+                addr_id = cur["address_id"]
+            except Exception:
+                addr_id = None
+
+    # Delete the person
+    db.execute("DELETE FROM person WHERE person_id = ?", (person_id,))
+
+    # If the deleted person had an address, ensure no other person still
+    # references it — if not, delete the orphaned address row.
+    if addr_id is not None:
+        other = db.query_one("SELECT COUNT(1) AS cnt FROM person WHERE address_id = ?", (addr_id,))
+        cnt = 0
+        if other:
+            try:
+                cnt = int(other.get("cnt") or 0)
+            except Exception:
+                try:
+                    cnt = int(other["cnt"] or 0)
+                except Exception:
+                    cnt = 0
+
+        if cnt == 0:
+            db.execute("DELETE FROM address WHERE address_id = ?", (addr_id,))
+
+    return True
+
+
+__all__ = [
+    "find_people_by_neighborhood",
+    "find_people_by_ministry",
+    "find_people_by_name",
+    "find_all_people",
+    "delete_person",
+]
