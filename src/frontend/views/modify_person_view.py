@@ -173,9 +173,15 @@ class ModifyPersonFrame(tk.Frame):
             payload[key] = entry.get()
 
         if "consolidation_id" in self.combos:
-            payload["consolidation_id"] = self.combos["consolidation_id"].get()
+            idx = self.combos["consolidation_id"].current()
+            if idx >= 0:
+                payload["consolidation_id"] = self._consolidation_options[idx]["consolidation_id"]
 
-        payload["cdb"] = self.combos["cdb"].get() == "Sí"
+
+        cdb_idx = self.combos["cdb"].current()
+        if cdb_idx >= 0:
+            payload["cdb_id"] = self._cdb_options[cdb_idx]["cdb_id"]
+
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
 
         try:
