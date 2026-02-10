@@ -102,9 +102,7 @@ def _build_main_window(app):
 				return
 			try:
 				# populate the person id input and call the load handler
-				mod.id_entry.delete(0, "end")
-				mod.id_entry.insert(0, str(person_id))
-				mod._on_load()
+				mod.load_person_by_id(person_id)
 			except Exception:
 				pass
 

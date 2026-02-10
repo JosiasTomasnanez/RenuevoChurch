@@ -105,20 +105,26 @@ class SearchPersonFrame(BaseFrame):
         """Return the value for a given column key from a row which may be
         either a repository-style dict or a Person object.
         """
+        value = None
+
         if isinstance(row, dict):
             person = row.get("person") or {}
             if col in ("street", "neighborhood", "house_number"):
                 addr = row.get("address") or {}
-                return addr.get(col)
+                value = addr.get(col)
             else:
-                return person.get(col)
+                value = person.get(col)
         else:
             # Person object
             if col in ("street", "neighborhood", "house_number"):
                 addr = getattr(row, "address", None)
-                return getattr(addr, col, None) if addr is not None else None
+                value = getattr(addr, col, None) if addr is not None else None
             else:
-                return getattr(row, col, None)
+                value = getattr(row, col, None)
+
+        # 🔹 CLAVE: nunca devolver None al Treeview
+        return "" if value is None else value
+
 
     def _visible_columns(self):
         return [c for c in self._all_cols if self._col_vars[c].get()]

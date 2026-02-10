@@ -94,8 +94,14 @@ class ModifyPersonFrame(tk.Frame):
                 self.entries[key] = e
 
         ttk.Button(frm, text="Guardar cambios", command=self._on_save).grid(
-            row=len(fields) + 1, column=0, columnspan=2, pady=10
+            row=len(fields) + 1, column=0, pady=10, padx=5, sticky="e"
         )
+
+        ttk.Button(
+            frm,
+            text="Eliminar persona",
+            command=self._on_delete,
+        ).grid(row=len(fields) + 1, column=1, pady=10, padx=5, sticky="w")
 
     # ---------------- Config helpers ----------------
 
@@ -136,18 +142,22 @@ class ModifyPersonFrame(tk.Frame):
             return
 
         try:
-            person = self.controller.get_person_by_id(int(pid))
+            person = self.controller.get_person(int(pid))
             if not person:
                 messagebox.showerror("Error", "Persona no encontrada")
                 return
 
+        # limpiar formulario antes de cargar nuevos datos
+            self._clear_form()
+
             self.person_id = person.person_id
+            self.entries["person_id"].insert(0, str(person.person_id))
 
             for key, entry in self.entries.items():
                 if key == "person_id":
                     continue
+
                 if hasattr(person, key) and getattr(person, key) is not None:
-                    entry.delete(0, tk.END)
                     entry.insert(0, str(getattr(person, key)))
 
             if hasattr(person, "baptized") and person.baptized:
@@ -157,6 +167,7 @@ class ModifyPersonFrame(tk.Frame):
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
 
     # ---------------- Save ----------------
 
@@ -189,6 +200,48 @@ class ModifyPersonFrame(tk.Frame):
             messagebox.showinfo("OK", "Persona actualizada")
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _on_delete(self):
+        if not self.person_id:
+            messagebox.showerror("Error", "Primero cargá una persona")
+            return
+
+        if not messagebox.askyesno("Confirmar", "¿Eliminar esta persona?"):
+            return
+
+        try:
+            self.controller.delete_person(self.person_id)
+            messagebox.showinfo("OK", "Persona eliminada")
+
+        # limpiar formulario
+            for entry in self.entries.values():
+                entry.delete(0, tk.END)
+
+            for combo in self.combos.values():
+                combo.set("")
+
+            self.person_id = None
+
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _clear_form(self):
+        for entry in self.entries.values():
+            entry.delete(0, tk.END)
+
+        for combo in self.combos.values():
+            combo.set("")
+
+        # valor por defecto para bautizado
+        if "baptized" in self.combos:
+            self.combos["baptized"].set("No")
+
+    def load_person_by_id(self, person_id: int):
+        """Public method used by Search frame to load a person."""
+        self.entries["person_id"].delete(0, tk.END)
+        self.entries["person_id"].insert(0, str(person_id))
+        self._on_load()
+
     def refresh_dropdowns(self):
         self._refresh_ministry_combo()
         self._refresh_consolidation_combo()
