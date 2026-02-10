@@ -3,9 +3,16 @@
 This small service wraps the repository helpers and maps database rows into
 typed `Person` objects from `src.backend.models.person`.
 """
-from typing import List
+from typing import List, Optional
 
-from ..db.repositories import find_people_by_neighborhood, find_people_by_ministry, find_people_by_name
+from ..db.repositories import (
+	find_people_by_neighborhood,
+	find_people_by_ministry,
+	find_people_by_name,
+	find_person_by_id,
+	create_person as _repo_create,
+	update_person as _repo_update,
+)
 from ..models.person import Person
 from ..db.repositories import get_area_and_ministry
 
@@ -112,4 +119,55 @@ def delete_person(person_id: int) -> bool:
 
 
 __all__.append("delete_person")
+
+
+def create_person(payload: dict) -> int:
+	"""Create a new person with optional address.
+
+	Args:
+		payload: Dictionary with person/address fields (first_name, last_name, email, dni,
+				phone_number, street, neighborhood, house_number).
+
+	Returns:
+		The id of the newly created person.
+	"""
+	return _repo_create(payload)
+
+
+__all__.append("create_person")
+
+
+def get_person(person_id: int) -> Optional[Person]:
+	"""Fetch a single person by id.
+
+	Returns:
+		A Person object or None if not found.
+	"""
+	if person_id is None:
+		return None
+
+	row = find_person_by_id(person_id)
+	if row is None:
+		return None
+
+	return Person.from_dict(row)
+
+
+__all__.append("get_person")
+
+
+def update_person(person_id: int, payload: dict) -> bool:
+	"""Update person and/or address fields.
+
+	Args:
+		person_id: The id of the person to update.
+		payload: Dictionary with fields to update.
+
+	Returns:
+		True if update succeeded, False otherwise.
+	"""
+	return _repo_update(person_id, payload)
+
+
+__all__.append("update_person")
 

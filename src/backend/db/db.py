@@ -130,6 +130,14 @@ def _get_schema_statements() -> List[str]:
         )
         """,
 
+        # CDB (Casa de Bendición) houses
+        """
+        CREATE TABLE IF NOT EXISTS cdb (
+            cdb_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            number INTEGER NOT NULL UNIQUE
+        )
+        """,
+
         # Physical addresses
         """
         CREATE TABLE IF NOT EXISTS address (
@@ -183,7 +191,7 @@ def _get_schema_statements() -> List[str]:
             marital_status TEXT,
             social_security TEXT,
             baptized BOOLEAN DEFAULT 0,
-            cdb BOOLEAN DEFAULT 0
+            cdb INTEGER REFERENCES cdb(cdb_id) ON DELETE SET NULL
         )
         """,
 

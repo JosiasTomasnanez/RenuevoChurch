@@ -364,10 +364,190 @@ def delete_person(person_id: int) -> bool:
     return True
 
 
+def find_person_by_id(person_id: int) -> Optional[Dict]:
+    """Fetch a single person by id with all related address and ministry info.
+
+    Args:
+        person_id: The id of the person to fetch.
+
+    Returns:
+        A dictionary with the person data structure (nested person/address/area/ministry)
+        or None if person not found.
+    """
+    if person_id is None:
+        return None
+
+    sql = """
+    SELECT p.*,
+           a.address_id AS addr_address_id, a.street AS addr_street,
+           a.neighborhood AS addr_neighborhood, a.house_number AS addr_house_number,
+           ma.area_id AS area_area_id, ma.ministry_id AS area_ministry_id, ma.area AS area_name,
+           m.ministry_id AS min_ministry_id, m.name AS min_name
+    FROM person p
+    LEFT JOIN address a ON p.address_id = a.address_id
+    LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
+    LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
+    WHERE p.person_id = ?
+    """
+
+    row = db.query_one(sql, (person_id,))
+    if not row:
+        return None
+
+    r = dict(row)
+    person_keys = {k: r[k] for k in r.keys() if not k.startswith("addr_") and not k.startswith("area_") and not k.startswith("min_")}
+
+    address_keys = None
+    if r.get("addr_address_id") is not None:
+        address_keys = {
+            "address_id": r.get("addr_address_id"),
+            "street": r.get("addr_street"),
+            "neighborhood": r.get("addr_neighborhood"),
+            "house_number": r.get("addr_house_number"),
+        }
+
+    area_keys = None
+    if r.get("area_area_id") is not None:
+        area_keys = {
+            "area_id": r.get("area_area_id"),
+            "ministry_id": r.get("area_ministry_id"),
+            "area": r.get("area_name"),
+        }
+
+    ministry_keys = None
+    if r.get("min_ministry_id") is not None:
+        ministry_keys = {
+            "ministry_id": r.get("min_ministry_id"),
+            "name": r.get("min_name"),
+        }
+
+    return {"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys}
+
+
+def create_person(payload: Dict) -> int:
+    """Insert a new person and optionally an address.
+
+    Args:
+        payload: Dictionary containing person and address fields.
+                Can include: first_name, last_name, email, birthdate, dni, phone_number,
+                marital_status, social_security, baptized, cdb,
+                address_id, trusted_person_id, ministry_area_id, consolidation_id,
+                future_ministry_area_id,
+                street, neighborhood, house_number
+
+    Returns:
+        The id of the newly created person.
+
+    Raises:
+        ValueError: If no person data is provided.
+    """
+    addr_id = None
+
+    # Insert address if any address fields provided
+    address_fields = ("street", "neighborhood", "house_number")
+    addr_vals = {k: payload.get(k) for k in address_fields if payload.get(k)}
+
+    if addr_vals:
+        cols = ", ".join(addr_vals.keys())
+        placeholders = ", ".join(["?"] * len(addr_vals))
+        sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
+        addr_id = db.insert(sql, tuple(addr_vals.values()))
+
+    # Build person insert columns/values dynamically
+    cols = []
+    vals = []
+
+    if addr_id is not None:
+        cols.append("address_id")
+        vals.append(addr_id)
+
+    # All person fields from the model
+    person_fields = (
+        "first_name", "last_name", "email", "birthdate", "dni", "phone_number",
+        "marital_status", "social_security", "baptized", "cdb",
+        "trusted_person_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
+    )
+    for key in person_fields:
+        if payload.get(key) is not None:
+            cols.append(key)
+            vals.append(payload.get(key))
+
+    if not cols:
+        raise ValueError("no person data provided")
+
+    col_sql = ", ".join(cols)
+    placeholder_sql = ", ".join(["?"] * len(vals))
+    sql = f"INSERT INTO person ({col_sql}) VALUES ({placeholder_sql})"
+    person_id = db.insert(sql, tuple(vals))
+
+    return person_id
+
+
+def update_person(person_id: int, payload: Dict) -> bool:
+    """Update person and/or address fields.
+
+    Args:
+        person_id: The id of the person to update.
+        payload: Dictionary with person and/or address fields to update.
+
+    Returns:
+        True if update affected rows, False otherwise.
+    """
+    if person_id is None:
+        return False
+
+    # Update address fields if provided
+    address_fields = ("street", "neighborhood", "house_number")
+    addr_vals = {k: payload[k] for k in address_fields if k in payload}
+
+    if addr_vals:
+        # Fetch current address id
+        cur = db.query_one("SELECT address_id FROM person WHERE person_id = ?", (person_id,))
+        addr_id = None
+        if cur:
+            try:
+                addr_id = cur["address_id"]
+            except Exception:
+                try:
+                    addr_id = cur.get("address_id")
+                except Exception:
+                    addr_id = None
+
+        if addr_id:
+            cols = ", ".join([f"{k} = ?" for k in addr_vals.keys()])
+            params = tuple(addr_vals.values()) + (addr_id,)
+            db.execute(f"UPDATE address SET {cols} WHERE address_id = ?", params)
+        else:
+            # No existing address — create one and attach to person
+            cols = ", ".join(addr_vals.keys())
+            placeholders = ", ".join(["?"] * len(addr_vals))
+            sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
+            new_addr_id = db.insert(sql, tuple(addr_vals.values()))
+            db.execute("UPDATE person SET address_id = ? WHERE person_id = ?", (new_addr_id, person_id))
+
+    # Update person fields (all available fields)
+    person_fields = (
+        "first_name", "last_name", "email", "birthdate", "dni", "phone_number",
+        "marital_status", "social_security", "baptized", "cdb",
+        "trusted_person_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
+    )
+    pvals = {k: payload[k] for k in person_fields if k in payload}
+
+    if pvals:
+        cols = ", ".join([f"{k} = ?" for k in pvals.keys()])
+        params = tuple(pvals.values()) + (person_id,)
+        db.execute(f"UPDATE person SET {cols} WHERE person_id = ?", params)
+
+    return True
+
+
 __all__ = [
     "find_people_by_neighborhood",
     "find_people_by_ministry",
     "find_people_by_name",
     "find_all_people",
     "delete_person",
+    "find_person_by_id",
+    "create_person",
+    "update_person",
 ]

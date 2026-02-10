@@ -1,7 +1,7 @@
 """Tkinter front-end entrypoint for the MVC app.
 
-This module builds a small Tkinter UI with three frames (Agregar, Busqueda,
-Modificacion) and three centered top buttons to switch between them.
+This module builds a small Tkinter UI with four frames (Agregar, Busqueda,
+Modificacion, Configurar) and centered top buttons to switch between them.
 
 It uses the backend app factory to obtain `db` and `services` and then
 creates a `PersonController` from the frontend controller module.
@@ -11,6 +11,8 @@ from __future__ import annotations
 from src.backend.app.main import create_app
 from src.frontend.controllers.person_controller import get_controller
 from src.frontend.views.person_view import AddPersonFrame, SearchPersonFrame, ModifyPersonFrame
+from src.frontend.views.config_view import ConfigurationFrame
+from src.backend.services.config import ConfigService
 
 
 def _build_main_window(app):
@@ -28,17 +30,22 @@ def _build_main_window(app):
 			self.geometry("900x600")
 
 			self.app = app
-			self.controller = get_controller(app.db, app.services)
+			self.controller = get_controller(app.services)
+			self.config_service = ConfigService()
 
 			self._build_ui()
 
 		def _build_ui(self):
-			# top button bar, centered
 			top = tk.Frame(self)
 			top.pack(side="top", fill="x", pady=8)
 
+			# Left button for configuration
+			self.btn_config = tk.Button(top, text="Configurar", command=lambda: self.show("config"), width=12, fg="darkblue")
+			self.btn_config.pack(side="left", padx=8, pady=0)
+
+			# Centered buttons
 			btn_frame = tk.Frame(top)
-			btn_frame.pack(anchor="n")
+			btn_frame.pack(anchor="n", expand=True)
 
 			self.btn_add = tk.Button(btn_frame, text="Agregar", command=lambda: self.show("add"), width=12)
 			self.btn_search = tk.Button(btn_frame, text="Busqueda", command=lambda: self.show("search"), width=12)
@@ -54,9 +61,19 @@ def _build_main_window(app):
 			container.pack(fill="both", expand=True, padx=8, pady=8)
 
 			self.frames = {}
-			self.frames["add"] = AddPersonFrame(container, controller=self.controller)
+			self.frames["add"] = AddPersonFrame(container, controller=self.controller, config_service=self.config_service)
 			self.frames["search"] = SearchPersonFrame(container, controller=self.controller)
-			self.frames["modify"] = ModifyPersonFrame(container, controller=self.controller)
+			self.frames["modify"] = ModifyPersonFrame(container, controller=self.controller, config_service=self.config_service)
+			self.frames["config"] = ConfigurationFrame(container, config_service=self.config_service)
+			
+			# Register refresh callbacks with config frame so it notifies forms when config changes
+			add_frame = self.frames.get("add")
+			modify_frame = self.frames.get("modify")
+			config_frame = self.frames.get("config")
+			if add_frame and config_frame:
+				config_frame._register_refresh_callback(add_frame.refresh_dropdowns)
+			if modify_frame and config_frame:
+				config_frame._register_refresh_callback(modify_frame.refresh_dropdowns)
 
 			# wire the search frame so it can open the modify frame directly
 			# wire callbacks between frames: search can load modify, and modify

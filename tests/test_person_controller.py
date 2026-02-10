@@ -1,7 +1,7 @@
 from src.frontend.controllers.person_controller import PersonController
 
 
-SAMPLE_ROW = {
+SAMPLE_PERSON = {
     "person": {
         "person_id": 1,
         "first_name": "Ana",
@@ -21,12 +21,12 @@ def test_controller_search_calls_name_service(monkeypatch):
         def get_people_by_name(self, name, partial=True):
             called['name'] = name
             called['partial'] = partial
-            return [SAMPLE_ROW]
+            return [SAMPLE_PERSON]
 
     # services object should have a .people attribute (matching app.services)
     from types import SimpleNamespace
     services = SimpleNamespace(people=FakeService())
-    ctrl = PersonController(db=None, services=services)
+    ctrl = PersonController(services=services)
 
     results = ctrl.search('Ana')
     assert isinstance(results, list)
@@ -37,7 +37,9 @@ def test_controller_search_calls_name_service(monkeypatch):
 
 def test_controller_search_returns_empty_when_no_query():
     # When services not present, return empty list
-    ctrl = PersonController(db=None, services=None)
+    from types import SimpleNamespace
+    services = SimpleNamespace(people=None)
+    ctrl = PersonController(services=services)
     assert ctrl.search('') == []
 
 
@@ -47,11 +49,11 @@ def test_controller_search_empty_returns_all(monkeypatch):
     class FakeService:
         def get_all_people(self):
             called['all'] = True
-            return [SAMPLE_ROW]
+            return [SAMPLE_PERSON]
 
     from types import SimpleNamespace
     services = SimpleNamespace(people=FakeService())
-    ctrl = PersonController(db=None, services=services)
+    ctrl = PersonController(services=services)
 
     results = ctrl.search('')
     assert isinstance(results, list)
@@ -69,33 +71,68 @@ def test_controller_delete_calls_service(monkeypatch):
 
     from types import SimpleNamespace
     services = SimpleNamespace(people=FakeService())
-    ctrl = PersonController(db=None, services=services)
+    ctrl = PersonController(services=services)
 
     ok = ctrl.delete_person(5)
     assert ok is True
     assert called['pid'] == 5
 
 
-def test_controller_delete_fallback(monkeypatch, tmp_path):
-    # Use a real temporary DB for fallback path
-    from src.backend.db.db import Database
+def test_controller_add_person_calls_service(monkeypatch):
+    called = {}
 
-    db_file = tmp_path / "test.db"
-    db = Database(path=db_file)
-    db.initialize_schema()
+    class FakeService:
+        def create_person(self, payload):
+            called['payload'] = payload
+            return 42
 
-    # insert an address and person
-    addr_id = db.insert("INSERT INTO address (street, neighborhood, house_number) VALUES (?,?,?)", ("Calle", "X", 1))
-    pid = db.insert("INSERT INTO person (address_id, first_name) VALUES (?,?)", (addr_id, "Tom"))
+    from types import SimpleNamespace
+    services = SimpleNamespace(people=FakeService())
+    ctrl = PersonController(services=services)
 
-    # construct controller that will exercise fallback delete
-    ctrl = PersonController(db=db, services=None)
-    ok = ctrl.delete_person(pid)
+    person_id = ctrl.add_person({"first_name": "Juan", "last_name": "Perez"})
+    assert person_id == 42
+    assert called['payload'] == {"first_name": "Juan", "last_name": "Perez"}
+
+
+def test_controller_get_person_calls_service(monkeypatch):
+    called = {}
+
+    class FakePerson:
+        def __init__(self):
+            self.person_id = 1
+            self.first_name = "Ana"
+
+    class FakeService:
+        def get_person(self, person_id):
+            called['person_id'] = person_id
+            return FakePerson()
+
+    from types import SimpleNamespace
+    services = SimpleNamespace(people=FakeService())
+    ctrl = PersonController(services=services)
+
+    person = ctrl.get_person(1)
+    assert person is not None
+    assert person.first_name == "Ana"
+    assert called['person_id'] == 1
+
+
+def test_controller_update_person_calls_service(monkeypatch):
+    called = {}
+
+    class FakeService:
+        def update_person(self, person_id, payload):
+            called['person_id'] = person_id
+            called['payload'] = payload
+            return True
+
+    from types import SimpleNamespace
+    services = SimpleNamespace(people=FakeService())
+    ctrl = PersonController(services=services)
+
+    ok = ctrl.update_person(1, {"first_name": "Juan"})
     assert ok is True
+    assert called['person_id'] == 1
+    assert called['payload'] == {"first_name": "Juan"}
 
-    # person should be gone
-    row = db.query_one("SELECT * FROM person WHERE person_id = ?", (pid,))
-    assert row is None
-    # address should be removed because no other person references it
-    addr = db.query_one("SELECT * FROM address WHERE address_id = ?", (addr_id,))
-    assert addr is None
