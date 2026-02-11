@@ -23,7 +23,7 @@ class SearchPersonFrame(BaseFrame):
             "person_id", "first_name", "last_name", "email", "birthdate",
             "dni", "phone_number", "marital_status", "social_security",
             "baptized", "cdb", "street", "neighborhood", "house_number",
-            "ministry_area_id", "consolidation_id"
+            "ministry", "consolidation_id"
         )
         self._headers = {
             "person_id": "ID",
@@ -40,7 +40,7 @@ class SearchPersonFrame(BaseFrame):
             "street": "Calle",
             "neighborhood": "Barrio",
             "house_number": "Nro Casa",
-            "ministry_area_id": "Área Min.",
+            "ministry": "Ministerio",
             "consolidation_id": "Consolidación",
         }
 
@@ -63,6 +63,8 @@ class SearchPersonFrame(BaseFrame):
 
         # Filters menu and active filter display
         self._active_filter_neighborhood = None
+        self._active_filter_ministry = None
+
         self.filter_label = tk.Label(top, text="")
         self.filter_label.pack(side="left", padx=(6, 0))
 
@@ -70,6 +72,7 @@ class SearchPersonFrame(BaseFrame):
         filter_menu = tk.Menu(self.filter_btn, tearoff=False)
         self.filter_btn.config(menu=filter_menu)
         filter_menu.add_command(label="Barrio...", command=self._open_neighborhood_filter)
+        filter_menu.add_command(label="Ministerio...", command=self._open_ministry_filter)
         filter_menu.add_separator()
         filter_menu.add_command(label="Limpiar filtro", command=self._clear_neighborhood_filter)
         self.filter_btn.pack(side="left", padx=(6, 0))
@@ -102,28 +105,37 @@ class SearchPersonFrame(BaseFrame):
             self.tree.insert("", "end", values=tuple(values))
 
     def _get_cell_value(self, row, col):
-        """Return the value for a given column key from a row which may be
-        either a repository-style dict or a Person object.
-        """
-        value = None
+        # row es un objeto Person
+        if col == "ministry":
+            # Obtener el ministerio y el área
+            min_name = row.ministry.name if row.ministry else ""
+            area_name = row.ministry_area.area if row.ministry_area else ""
+            
+            # Mostrar ministerio / área si ambos existen
+            if min_name and area_name:
+                return f"{min_name} / {area_name}"
+            # Si solo hay ministerio, mostrar ministerio
+            if min_name:
+                return min_name
+            # Si solo hay área, mostrar área
+            if area_name:
+                return area_name
+            return ""
 
-        if isinstance(row, dict):
-            person = row.get("person") or {}
-            if col in ("street", "neighborhood", "house_number"):
-                addr = row.get("address") or {}
-                value = addr.get(col)
-            else:
-                value = person.get(col)
-        else:
-            # Person object
-            if col in ("street", "neighborhood", "house_number"):
-                addr = getattr(row, "address", None)
-                value = getattr(addr, col, None) if addr is not None else None
-            else:
-                value = getattr(row, col, None)
+        # columnas de la persona
+        if hasattr(row, col):
+            val = getattr(row, col)
+            return "" if val is None else val
 
-        # 🔹 CLAVE: nunca devolver None al Treeview
-        return "" if value is None else value
+        # columnas de dirección
+        if hasattr(row, "address") and row.address:
+            if hasattr(row.address, col):
+                val = getattr(row.address, col)
+                return "" if val is None else val
+
+        return ""
+
+
 
 
     def _visible_columns(self):
@@ -207,7 +219,9 @@ class SearchPersonFrame(BaseFrame):
             filtered = self._filter_by_neighborhood(filtered, self._active_filter_neighborhood)
         
         # Add more filters here as needed:
-        # filtered = self._filter_by_ministry(filtered, self._active_ministry)
+        if self._active_filter_ministry:
+            filtered = self._filter_by_ministry(filtered, self._active_filter_ministry)
+
         # filtered = self._filter_by_age_range(filtered, self._min_age, self._max_age)
         # etc.
         
@@ -219,6 +233,15 @@ class SearchPersonFrame(BaseFrame):
         for r in results:
             neigh = self._get_cell_value(r, "neighborhood")
             if neigh == neighborhood:
+                filtered.append(r)
+        return filtered
+
+    def _filter_by_ministry(self, results, ministry_id):
+        """Filter results to only include those in the given ministry."""
+        filtered = []
+        for r in results:
+            mid = self._get_cell_value(r, "ministry_area_id")
+            if mid == ministry_id:
                 filtered.append(r)
         return filtered
 
@@ -254,6 +277,24 @@ class SearchPersonFrame(BaseFrame):
             return sorted(neighs)
         except Exception:
             return []
+    
+    def _gather_ministries(self):
+        """Return a sorted list of all ministries available."""
+        try:
+            people = self.controller.services.people.get_all_people()
+            mins = set()
+            for p in people:
+                if isinstance(p, dict):
+                    person = p.get("person") or {}
+                    m = person.get("ministry_area_id")
+                else:
+                    m = getattr(p, "ministry_area_id", None)
+                if m:
+                    mins.add(m)
+            return sorted(mins)
+        except Exception:
+            return []
+
 
     def _open_neighborhood_filter(self):
         """Open a small popup listing neighborhoods to choose from."""
@@ -293,6 +334,45 @@ class SearchPersonFrame(BaseFrame):
         tk.Button(frm, text="Aplicar", command=_on_ok).pack(side="left", padx=(0,6))
         tk.Button(frm, text="Cancelar", command=_on_cancel).pack(side="left")
 
+    def _open_ministry_filter(self):
+        """Open a popup listing ministries to choose from."""
+        ministries = self._gather_ministries()  # función que devuelve la lista de ministerios
+        win = tk.Toplevel(self)
+        win.title("Seleccionar ministerio")
+        win.geometry("300x300")
+
+        lb = tk.Listbox(win)
+        for m in ministries:
+            lb.insert("end", m)
+        lb.pack(fill="both", expand=True, padx=6, pady=6)
+
+        # pre-seleccionar si ya hay filtro
+        if self._active_filter_ministry:
+            try:
+                idx = ministries.index(self._active_filter_ministry)
+                lb.selection_set(idx)
+                lb.see(idx)
+            except Exception:
+                pass
+
+        frm = tk.Frame(win)
+        frm.pack(fill="x", padx=6, pady=6)
+        def _on_ok():
+            sel = lb.curselection()
+            if not sel:
+                win.destroy()
+                return
+            val = lb.get(sel[0])
+            self._apply_ministry_filter(val)
+            win.destroy()
+
+        def _on_cancel():
+            win.destroy()
+
+        tk.Button(frm, text="Aplicar", command=_on_ok).pack(side="left", padx=(0,6))
+        tk.Button(frm, text="Cancelar", command=_on_cancel).pack(side="left")
+
+
     def _apply_neighborhood_filter(self, neighborhood: str):
         self._active_filter_neighborhood = neighborhood
         if neighborhood:
@@ -302,8 +382,23 @@ class SearchPersonFrame(BaseFrame):
         # Re-run search to apply the filter
         self._on_search()
 
+    def _apply_ministry_filter(self, ministry_id):
+        self._active_filter_ministry = ministry_id
+        if ministry_id:
+            self.filter_label.config(text=f"Filtro ministerio: {ministry_id}")
+        else:
+            self.filter_label.config(text="")
+        self._on_search()
+
+
     def _clear_neighborhood_filter(self):
         self._active_filter_neighborhood = None
         self.filter_label.config(text="")
         # Re-run search to clear the filter
         self._on_search()
+    
+    def _clear_ministry_filter(self):
+        self._active_filter_ministry = None
+        self.filter_label.config(text="")
+        self._on_search()
+

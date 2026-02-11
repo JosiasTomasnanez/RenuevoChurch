@@ -173,19 +173,27 @@ class AddPersonFrame(BaseFrame):
         payload = {k: (v.get() or None) for k, v in self.entries.items()}
         
         # Handle combo boxes
-        # ministry
+        # Get selected ministry
         min_idx = self.combos["ministry_id"].current()
+        selected_ministry_id = None
         if min_idx >= 0 and hasattr(self, "_ministry_options"):
-            payload["ministry_id"] = self._ministry_options[min_idx]["ministry_id"]
-        else:
-            payload["ministry_id"] = None
+            selected_ministry_id = self._ministry_options[min_idx]["ministry_id"]
 
-# area (optional)
+        # Get selected area
         area_idx = self.combos["area_id"].current()
+        
+        # If area is selected, use ministry_area_id (which links to ministry through the area)
         if area_idx >= 0 and hasattr(self, "_area_options"):
-            payload["area_id"] = self._area_options[area_idx]["area_id"]
+            payload["ministry_area_id"] = self._area_options[area_idx]["area_id"]
+            # ministry_id gets set from the area, not directly
+            payload["ministry_id"] = None
         else:
-            payload["area_id"] = None
+            # No area selected, so use ministry_id directly if ministry is selected
+            payload["ministry_area_id"] = None
+            if selected_ministry_id is not None:
+                payload["ministry_id"] = selected_ministry_id
+            else:
+                payload["ministry_id"] = None
         
         # Consolidation
         cons_idx = self.combos["consolidation_id"].current()

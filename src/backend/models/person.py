@@ -29,6 +29,7 @@ class Person:
 	# Foreign keys
 	address_id: Optional[int]
 	trusted_person_id: Optional[int]
+	ministry_id: Optional[int]
 	ministry_area_id: Optional[int]
 	consolidation_id: Optional[int]
 	future_ministry_area_id: Optional[int]
@@ -98,6 +99,7 @@ class Person:
 				cdb=data.get("cdb"),
 				address_id=data.get("address_id"),
 				trusted_person_id=data.get("trusted_person_id"),
+				ministry_id=data.get("direct_ministry_id"),  # Direct ministry assignment
 				ministry_area_id=data.get("ministry_area_id"),
 				consolidation_id=data.get("consolidation_id"),
 				future_ministry_area_id=data.get("future_ministry_area_id"),
@@ -151,6 +153,7 @@ class Person:
 			cdb=Person._get(p, "cdb"),
 			address_id=Person._get(p, "address_id"),
 			trusted_person_id=Person._get(p, "trusted_person_id"),
+			ministry_id=Person._get(p, "ministry_id"),
 			ministry_area_id=Person._get(p, "ministry_area_id"),
 			consolidation_id=Person._get(p, "consolidation_id"),
 			future_ministry_area_id=Person._get(p, "future_ministry_area_id"),

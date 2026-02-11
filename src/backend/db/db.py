@@ -115,6 +115,27 @@ class Database:
         with self.get_connection() as conn:
             for stmt in schema_statements:
                 conn.execute(stmt)
+        
+        # Apply any pending migrations
+        self._apply_migrations()
+    
+    def _apply_migrations(self) -> None:
+        """Apply any pending database migrations."""
+        # Migration: Add ministry_id column to person table if it doesn't exist
+        try:
+            with self.get_connection() as conn:
+                # Check if ministry_id column exists
+                cursor = conn.execute("PRAGMA table_info(person)")
+                columns = {row[1] for row in cursor.fetchall()}
+                
+                if 'ministry_id' not in columns:
+                    # Add the column
+                    conn.execute("""
+                    ALTER TABLE person ADD COLUMN ministry_id INTEGER REFERENCES ministry(ministry_id) ON DELETE SET NULL
+                    """)
+        except Exception:
+            # Migration already applied or error — continue silently
+            pass
 
 
 def _get_schema_statements() -> List[str]:

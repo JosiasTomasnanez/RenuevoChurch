@@ -22,6 +22,12 @@ except Exception:  # pragma: no cover - defensive: keep module import stable
     # fall back in case the name resolution changes; keep it explicit
     from ..db import db as db
 
+def _get_ministry_name(ministry_id: int) -> Optional[str]:
+    """Helper to get ministry name by id."""
+    if ministry_id is None:
+        return None
+    row = db.query_one("SELECT name FROM ministry WHERE ministry_id = ?", (ministry_id,))
+    return row["name"] if row else None
 
 def find_people_by_neighborhood(neighborhood: str, partial: bool = False) -> List[Dict]:
     """Return people living in a given neighborhood.
@@ -95,6 +101,18 @@ def find_people_by_neighborhood(neighborhood: str, partial: bool = False) -> Lis
                 "ministry_id": row.get("min_ministry_id"),
                 "name": row.get("min_name"),
             }
+        elif row.get("area_ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("area_ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("area_ministry_id"),
+                "name": ministry_name,
+            }
+        elif row.get("ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("ministry_id"),
+                "name": ministry_name,
+            }
 
         results.append({"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys})
 
@@ -160,6 +178,18 @@ def find_people_by_ministry(ministry_id: int) -> List[Dict]:
             ministry_keys = {
                 "ministry_id": row.get("min_ministry_id"),
                 "name": row.get("min_name"),
+            }
+        elif row.get("area_ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("area_ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("area_ministry_id"),
+                "name": ministry_name,
+            }
+        elif row.get("ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("ministry_id"),
+                "name": ministry_name,
             }
 
         results.append({"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys})
@@ -259,6 +289,18 @@ def find_people_by_name(name: str, partial: bool = True) -> List[Dict]:
                 "ministry_id": row.get("min_ministry_id"),
                 "name": row.get("min_name"),
             }
+        elif row.get("area_ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("area_ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("area_ministry_id"),
+                "name": ministry_name,
+            }
+        elif row.get("ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("ministry_id"),
+                "name": ministry_name,
+            }
 
         results.append({"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys})
 
@@ -312,6 +354,18 @@ def find_all_people() -> List[Dict]:
             ministry_keys = {
                 "ministry_id": row.get("min_ministry_id"),
                 "name": row.get("min_name"),
+            }
+        elif row.get("area_ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("area_ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("area_ministry_id"),
+                "name": ministry_name,
+            }
+        elif row.get("ministry_id") is not None:
+            ministry_name = _get_ministry_name(row.get("ministry_id"))
+            ministry_keys = {
+                "ministry_id": row.get("ministry_id"),
+                "name": ministry_name,
             }
 
         results.append({"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys})
@@ -420,6 +474,18 @@ def find_person_by_id(person_id: int) -> Optional[Dict]:
             "ministry_id": r.get("min_ministry_id"),
             "name": r.get("min_name"),
         }
+    elif r.get("area_ministry_id") is not None:
+        ministry_name = _get_ministry_name(r.get("area_ministry_id"))
+        ministry_keys = {
+            "ministry_id": r.get("area_ministry_id"),
+            "name": ministry_name,
+        }
+    elif r.get("ministry_id") is not None:
+        ministry_name = _get_ministry_name(r.get("ministry_id"))
+        ministry_keys = {
+            "ministry_id": r.get("ministry_id"),
+            "name": ministry_name,
+        }
 
     return {"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys}
 
@@ -465,7 +531,7 @@ def create_person(payload: Dict) -> int:
     person_fields = (
         "first_name", "last_name", "email", "birthdate", "dni", "phone_number",
         "marital_status", "social_security", "baptized", "cdb",
-        "trusted_person_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
+        "trusted_person_id", "ministry_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
     )
     for key in person_fields:
         if payload.get(key) is not None:
@@ -529,7 +595,7 @@ def update_person(person_id: int, payload: Dict) -> bool:
     person_fields = (
         "first_name", "last_name", "email", "birthdate", "dni", "phone_number",
         "marital_status", "social_security", "baptized", "cdb",
-        "trusted_person_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
+        "trusted_person_id", "ministry_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
     )
     pvals = {k: payload[k] for k in person_fields if k in payload}
 

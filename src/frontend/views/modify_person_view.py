@@ -165,6 +165,39 @@ class ModifyPersonFrame(tk.Frame):
             else:
                 self.combos["baptized"].set("No")
 
+            # Load ministry and area if the person has them assigned
+            if hasattr(person, "ministry_area_id") and person.ministry_area_id:
+                try:
+                    area_info = self.controller.services.people.get_area_and_ministry_service(person.ministry_area_id)
+                    if area_info:
+                        area_data = area_info.get("area")
+                        ministry_data = area_info.get("ministry")
+                        
+                        if ministry_data:
+                            ministry_id = ministry_data.get("ministry_id")
+                            # Find and select the ministry in the combo
+                            for idx, m in enumerate(self._ministry_options):
+                                if m["ministry_id"] == ministry_id:
+                                    self.combos["ministry_id"].current(idx)
+                                    # Load areas for this ministry
+                                    try:
+                                        areas = self.config_service.get_areas_by_ministry(ministry_id)
+                                        self._area_options = areas
+                                        labels = [a["area"] for a in areas]
+                                        self.combos["area_id"]["values"] = labels
+                                        # Select the current area
+                                        if area_data:
+                                            current_area_id = area_data.get("area_id")
+                                            for area_idx, a in enumerate(areas):
+                                                if a["area_id"] == current_area_id:
+                                                    self.combos["area_id"].current(area_idx)
+                                                    break
+                                    except Exception:
+                                        pass
+                                    break
+                except Exception:
+                    pass
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -188,6 +221,26 @@ class ModifyPersonFrame(tk.Frame):
             if idx >= 0:
                 payload["consolidation_id"] = self._consolidation_options[idx]["consolidation_id"]
 
+        # ministry and area
+        min_idx = self.combos["ministry_id"].current()
+        selected_ministry_id = None
+        if min_idx >= 0 and hasattr(self, "_ministry_options"):
+            selected_ministry_id = self._ministry_options[min_idx]["ministry_id"]
+
+        area_idx = self.combos["area_id"].current()
+        
+        # If area is selected, use ministry_area_id (which links to ministry through the area)
+        if area_idx >= 0 and hasattr(self, "_area_options"):
+            payload["ministry_area_id"] = self._area_options[area_idx]["area_id"]
+            # ministry_id gets set from the area, not directly
+            payload["ministry_id"] = None
+        else:
+            # No area selected, so use ministry_id directly if ministry is selected
+            payload["ministry_area_id"] = None
+            if selected_ministry_id is not None:
+                payload["ministry_id"] = selected_ministry_id
+            else:
+                payload["ministry_id"] = None
 
         cdb_idx = self.combos["cdb"].current()
         if cdb_idx >= 0:
