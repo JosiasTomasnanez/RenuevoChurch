@@ -58,6 +58,9 @@ class ConfigController:
     def get_all_cdb_options(self) -> List[Dict]:
         return self.service.get_all_cdb_options()
 
+    def get_cdb_by_id(self, cdb_id: int) -> Optional[Dict]:
+        return self.service.get_cdb_by_id(cdb_id)
+
     def create_cdb(self, number: int) -> None:
         self.service.create_cdb(number)
 

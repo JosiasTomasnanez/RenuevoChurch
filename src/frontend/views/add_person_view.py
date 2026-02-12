@@ -1,6 +1,12 @@
 from src.frontend.views._base import BaseFrame, tk, messagebox, ttk
 
 class AddPersonFrame(BaseFrame):
+    # Pastel color scheme
+    BG_PRIMARY = "#F0E6F6"      # Light purple
+    BG_INPUT = "#FFFBF5"        # Warm white
+    BTN_COLOR = "#7A4A97"       # Strong dark purple
+    TEXT_DARK = "#5A5A5A"       # Dark gray for text
+    
     def __init__(self, master, controller, config_service=None, open_modify_callback=None, **kwargs):
         if tk is None:
             raise RuntimeError("Tkinter not available in this environment — run GUI on a machine with Tk installed")
@@ -8,6 +14,7 @@ class AddPersonFrame(BaseFrame):
         self.controller = controller
         self.config_service = config_service
         self._open_modify_cb = open_modify_callback
+        self.config(bg=self.BG_PRIMARY)
         self._build()
 
     def _build(self):
@@ -41,7 +48,8 @@ class AddPersonFrame(BaseFrame):
         ]
 
         for i, (key, label) in enumerate(fields):
-            tk.Label(self, text=label).grid(row=i, column=0, sticky="w", padx=6, pady=3)
+            lbl = tk.Label(self, text=label, bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
+            lbl.grid(row=i, column=0, sticky="w", padx=6, pady=3)
             
             if key == "ministry_area_id":
                 # Dropdown for ministry areas
@@ -79,11 +87,11 @@ class AddPersonFrame(BaseFrame):
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
             else:
-                ent = tk.Entry(self, width=40)
+                ent = tk.Entry(self, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
                 ent.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = ent
 
-        btn = tk.Button(self, text="Agregar", command=self._on_submit)
+        btn = tk.Button(self, text="Agregar", command=self._on_submit, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
         btn.grid(row=len(fields), column=0, columnspan=2, pady=(10, 0))
     
     def _refresh_area_combo(self):

@@ -1,10 +1,18 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from src.frontend.views._base import BaseFrame
 
 
-class ModifyPersonFrame(tk.Frame):
+class ModifyPersonFrame(BaseFrame):
+    # Pastel color scheme
+    BG_PRIMARY = "#F0E6F6"      # Light purple
+    BG_INPUT = "#FFFBF5"        # Warm white
+    BTN_COLOR = "#7A4A97"       # Strong dark purple
+    TEXT_DARK = "#5A5A5A"       # Dark gray for text
+    
     def __init__(self, parent, controller=None, config_service=None):
         super().__init__(parent)
+        self.config(bg=self.BG_PRIMARY)
 
         self.controller = controller
         self.config_service = config_service
@@ -21,7 +29,7 @@ class ModifyPersonFrame(tk.Frame):
     # ---------------- UI ----------------
 
     def _build(self):
-        frm = ttk.Frame(self)
+        frm = tk.Frame(self, bg=self.BG_PRIMARY)
         frm.pack(padx=10, pady=10, fill="x")
 
         fields = [
@@ -45,16 +53,16 @@ class ModifyPersonFrame(tk.Frame):
         ]
 
         for i, (key, label) in enumerate(fields):
-            ttk.Label(frm, text=label).grid(row=i, column=0, sticky="e", padx=6, pady=3)
+            lbl = tk.Label(frm, text=label, bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
+            lbl.grid(row=i, column=0, sticky="w", padx=6, pady=3)
 
             if key == "person_id":
-                e = ttk.Entry(frm, width=40)
+                e = tk.Entry(frm, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
                 e.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = e
 
-                ttk.Button(frm, text="Cargar", command=self._on_load).grid(
-                    row=i, column=2, padx=4
-                )
+                load_btn = tk.Button(frm, text="Cargar", command=self._on_load, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
+                load_btn.grid(row=i, column=2, padx=4)
 
             elif key == "ministry_id":
                 combo = ttk.Combobox(frm, width=37, state="readonly")
@@ -89,19 +97,15 @@ class ModifyPersonFrame(tk.Frame):
                 self.combos[key] = combo
 
             else:
-                e = ttk.Entry(frm, width=40)
+                e = tk.Entry(frm, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
                 e.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = e
 
-        ttk.Button(frm, text="Guardar cambios", command=self._on_save).grid(
-            row=len(fields) + 1, column=0, pady=10, padx=5, sticky="e"
-        )
+        save_btn = tk.Button(frm, text="Guardar cambios", command=self._on_save, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
+        save_btn.grid(row=len(fields) + 1, column=0, pady=10, padx=5, sticky="e")
 
-        ttk.Button(
-            frm,
-            text="Eliminar persona",
-            command=self._on_delete,
-        ).grid(row=len(fields) + 1, column=1, pady=10, padx=5, sticky="w")
+        delete_btn = tk.Button(frm, text="Eliminar persona", command=self._on_delete, bg="#A83030", fg="white", relief="raised", bd=1, activebackground="#8A1010")
+        delete_btn.grid(row=len(fields) + 1, column=1, pady=10, padx=5, sticky="w")
 
     # ---------------- Config helpers ----------------
 
@@ -159,13 +163,26 @@ class ModifyPersonFrame(tk.Frame):
 
                 if hasattr(person, key) and getattr(person, key) is not None:
                     entry.insert(0, str(getattr(person, key)))
+                # Check address nested object for street, neighborhood, house_number
+                elif key in ("street", "neighborhood", "house_number"):
+                    if hasattr(person, "address") and person.address:
+                        if hasattr(person.address, key) and getattr(person.address, key) is not None:
+                            entry.insert(0, str(getattr(person.address, key)))
 
             if hasattr(person, "baptized") and person.baptized:
                 self.combos["baptized"].set("Sí")
             else:
                 self.combos["baptized"].set("No")
 
+            # Ensure ministry combo is loaded
+            try:
+                if not hasattr(self, "_ministry_options") or not self._ministry_options:
+                    self._refresh_ministry_combo()
+            except Exception:
+                pass
+
             # Load ministry and area if the person has them assigned
+            # Try ministry_area_id first (standard case)
             if hasattr(person, "ministry_area_id") and person.ministry_area_id:
                 try:
                     area_info = self.controller.services.people.get_area_and_ministry_service(person.ministry_area_id)
@@ -197,6 +214,51 @@ class ModifyPersonFrame(tk.Frame):
                                     break
                 except Exception:
                     pass
+            # Fallback: try ministry_id directly if no ministry_area_id
+            elif hasattr(person, "ministry_id") and person.ministry_id:
+                try:
+                    if hasattr(self, "_ministry_options"):
+                        for idx, m in enumerate(self._ministry_options):
+                            if m["ministry_id"] == person.ministry_id:
+                                self.combos["ministry_id"].current(idx)
+                                break
+                except Exception:
+                    pass
+
+            # Select consolidation combo if set
+            try:
+                if hasattr(person, "consolidation_id") and person.consolidation_id is not None and "consolidation_id" in self.combos:
+                    if not hasattr(self, "_consolidation_options"):
+                        self._refresh_consolidation_combo()
+                    try:
+                        for idx, c in enumerate(self._consolidation_options):
+                            if c.get("consolidation_id") == person.consolidation_id:
+                                self.combos["consolidation_id"].current(idx)
+                                break
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # Select CDB combo based on person's cdb (which stores cdb_id)
+            try:
+                if hasattr(person, "cdb") and person.cdb is not None and "cdb" in self.combos:
+                    # ensure _cdb_options is loaded
+                    try:
+                        if not hasattr(self, "_cdb_options"):
+                            self._refresh_cdb_combo()
+                    except Exception:
+                        pass
+
+                    try:
+                        for idx, c in enumerate(self._cdb_options):
+                            if c.get("cdb_id") == person.cdb:
+                                self.combos["cdb"].current(idx)
+                                break
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -244,7 +306,8 @@ class ModifyPersonFrame(tk.Frame):
 
         cdb_idx = self.combos["cdb"].current()
         if cdb_idx >= 0:
-            payload["cdb_id"] = self._cdb_options[cdb_idx]["cdb_id"]
+            # backend expects `cdb` field (stores cdb_id in person.cdb)
+            payload["cdb"] = self._cdb_options[cdb_idx]["cdb_id"]
 
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
 

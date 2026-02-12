@@ -64,7 +64,11 @@ def _build_main_window(app):
                 controller=self.controller,
                 config_service=self.config_controller
             )
-            self.frames["search"] = SearchPersonFrame(container, controller=self.controller)
+            self.frames["search"] = SearchPersonFrame(
+                container,
+                controller=self.controller,
+                config_service=self.config_controller,
+            )
             self.frames["modify"] = ModifyPersonFrame(
                 container,
                 controller=self.controller,
