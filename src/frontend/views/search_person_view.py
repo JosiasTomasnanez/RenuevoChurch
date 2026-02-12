@@ -520,6 +520,11 @@ class SearchPersonFrame(BaseFrame):
         self.filter_label.config(text=("Filtro " + " | ".join(parts)) if parts else "")
         self._on_search()
 
+    def refresh_dropdowns(self):
+        """Refresh search results to reflect updated config."""
+        # Simply re-run the current search to update all displayed data
+        self._on_search()
+
     def _clear_all_filters(self):
         for k in list(self._active_filters.keys()):
             self._active_filters[k] = None

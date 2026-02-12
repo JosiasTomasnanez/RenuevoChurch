@@ -10,12 +10,15 @@ class ModifyPersonFrame(BaseFrame):
     BTN_COLOR = "#7A4A97"       # Strong dark purple
     TEXT_DARK = "#5A5A5A"       # Dark gray for text
     
-    def __init__(self, parent, controller=None, config_service=None):
+    def __init__(self, parent, controller=None, config_service=None, on_data_changed=None):
+
         super().__init__(parent)
         self.config(bg=self.BG_PRIMARY)
 
         self.controller = controller
         self.config_service = config_service
+        self._on_data_changed = on_data_changed
+
 
         self.entries = {}
         self.combos = {}
@@ -23,6 +26,8 @@ class ModifyPersonFrame(BaseFrame):
 
         self._ministry_options = []
         self._area_options = []
+        self._consolidation_options = []
+        self._cdb_options = []
 
         self._build()
 
@@ -136,6 +141,113 @@ class ModifyPersonFrame(BaseFrame):
         except Exception:
             pass
 
+    # ---------------- Helper loaders (refactor _on_load) ----------------
+
+    def _fetch_person(self, pid):
+        try:
+            return self.controller.get_person(int(pid))
+        except Exception:
+            return None
+
+    def _populate_basic_fields(self, person):
+        # set id and simple fields + address nested fields
+        self.person_id = person.person_id
+        self.entries["person_id"].insert(0, str(person.person_id))
+
+        for key, entry in self.entries.items():
+            if key == "person_id":
+                continue
+
+            if hasattr(person, key) and getattr(person, key) is not None:
+                entry.insert(0, str(getattr(person, key)))
+            elif key in ("street", "neighborhood", "house_number"):
+                addr = getattr(person, "address", None)
+                if addr and hasattr(addr, key) and getattr(addr, key) is not None:
+                    entry.insert(0, str(getattr(addr, key)))
+
+    def _set_baptized(self, person):
+        try:
+            if hasattr(person, "baptized") and person.baptized:
+                self.combos["baptized"].set("Sí")
+            else:
+                self.combos["baptized"].set("No")
+        except Exception:
+            pass
+
+    def _load_ministry_and_area(self, person):
+        # Ensure ministry list is available
+        try:
+            if not self._ministry_options:
+                self._refresh_ministry_combo()
+        except Exception:
+            pass
+
+        # Try ministry_area_id first
+        try:
+            if hasattr(person, "ministry_area_id") and person.ministry_area_id:
+                area_info = None
+                try:
+                    area_info = self.controller.services.people.get_area_and_ministry_service(person.ministry_area_id)
+                except Exception:
+                    area_info = None
+
+                if area_info:
+                    area_data = area_info.get("area")
+                    ministry_data = area_info.get("ministry")
+                    if ministry_data:
+                        ministry_id = ministry_data.get("ministry_id")
+                        # select ministry
+                        for idx, m in enumerate(self._ministry_options):
+                            if m.get("ministry_id") == ministry_id:
+                                self.combos["ministry_id"].current(idx)
+                                break
+                        # load areas and select current
+                        try:
+                            areas = self.config_service.get_areas_by_ministry(ministry_id)
+                            self._area_options = areas
+                            labels = [a.get("area") for a in areas]
+                            self.combos["area_id"]["values"] = labels
+                            if area_data:
+                                current_area_id = area_data.get("area_id")
+                                for area_idx, a in enumerate(areas):
+                                    if a.get("area_id") == current_area_id:
+                                        self.combos["area_id"].current(area_idx)
+                                        break
+                        except Exception:
+                            pass
+                        return
+
+            # Fallback to ministry_id directly
+            if hasattr(person, "ministry_id") and person.ministry_id:
+                for idx, m in enumerate(self._ministry_options):
+                    if m.get("ministry_id") == person.ministry_id:
+                        self.combos["ministry_id"].current(idx)
+                        break
+        except Exception:
+            pass
+
+    def _select_consolidation(self, person):
+        try:
+            if hasattr(person, "consolidation_id") and person.consolidation_id is not None and "consolidation_id" in self.combos:
+                self._refresh_consolidation_combo()
+                for idx, c in enumerate(self._consolidation_options):
+                    if c.get("consolidation_id") == person.consolidation_id:
+                        self.combos["consolidation_id"].current(idx)
+                        break
+        except Exception:
+            pass
+
+    def _select_cdb(self, person):
+        try:
+            if hasattr(person, "cdb") and person.cdb is not None and "cdb" in self.combos:
+                self._refresh_cdb_combo()
+                for idx, c in enumerate(self._cdb_options):
+                    if c.get("cdb_id") == person.cdb:
+                        self.combos["cdb"].current(idx)
+                        break
+        except Exception:
+            pass
+
     # ---------------- Load person ----------------
 
     def _on_load(self):
@@ -145,121 +257,21 @@ class ModifyPersonFrame(BaseFrame):
             messagebox.showerror("Error", "Ingresá un ID")
             return
 
-        try:
-            person = self.controller.get_person(int(pid))
-            if not person:
-                messagebox.showerror("Error", "Persona no encontrada")
-                return
+        person = self._fetch_person(pid)
+        if not person:
+            messagebox.showerror("Error", "Persona no encontrada")
+            return
 
         # limpiar formulario antes de cargar nuevos datos
-            self._clear_form()
+        self._clear_form()
 
-            self.person_id = person.person_id
-            self.entries["person_id"].insert(0, str(person.person_id))
-
-            for key, entry in self.entries.items():
-                if key == "person_id":
-                    continue
-
-                if hasattr(person, key) and getattr(person, key) is not None:
-                    entry.insert(0, str(getattr(person, key)))
-                # Check address nested object for street, neighborhood, house_number
-                elif key in ("street", "neighborhood", "house_number"):
-                    if hasattr(person, "address") and person.address:
-                        if hasattr(person.address, key) and getattr(person.address, key) is not None:
-                            entry.insert(0, str(getattr(person.address, key)))
-
-            if hasattr(person, "baptized") and person.baptized:
-                self.combos["baptized"].set("Sí")
-            else:
-                self.combos["baptized"].set("No")
-
-            # Ensure ministry combo is loaded
-            try:
-                if not hasattr(self, "_ministry_options") or not self._ministry_options:
-                    self._refresh_ministry_combo()
-            except Exception:
-                pass
-
-            # Load ministry and area if the person has them assigned
-            # Try ministry_area_id first (standard case)
-            if hasattr(person, "ministry_area_id") and person.ministry_area_id:
-                try:
-                    area_info = self.controller.services.people.get_area_and_ministry_service(person.ministry_area_id)
-                    if area_info:
-                        area_data = area_info.get("area")
-                        ministry_data = area_info.get("ministry")
-                        
-                        if ministry_data:
-                            ministry_id = ministry_data.get("ministry_id")
-                            # Find and select the ministry in the combo
-                            for idx, m in enumerate(self._ministry_options):
-                                if m["ministry_id"] == ministry_id:
-                                    self.combos["ministry_id"].current(idx)
-                                    # Load areas for this ministry
-                                    try:
-                                        areas = self.config_service.get_areas_by_ministry(ministry_id)
-                                        self._area_options = areas
-                                        labels = [a["area"] for a in areas]
-                                        self.combos["area_id"]["values"] = labels
-                                        # Select the current area
-                                        if area_data:
-                                            current_area_id = area_data.get("area_id")
-                                            for area_idx, a in enumerate(areas):
-                                                if a["area_id"] == current_area_id:
-                                                    self.combos["area_id"].current(area_idx)
-                                                    break
-                                    except Exception:
-                                        pass
-                                    break
-                except Exception:
-                    pass
-            # Fallback: try ministry_id directly if no ministry_area_id
-            elif hasattr(person, "ministry_id") and person.ministry_id:
-                try:
-                    if hasattr(self, "_ministry_options"):
-                        for idx, m in enumerate(self._ministry_options):
-                            if m["ministry_id"] == person.ministry_id:
-                                self.combos["ministry_id"].current(idx)
-                                break
-                except Exception:
-                    pass
-
-            # Select consolidation combo if set
-            try:
-                if hasattr(person, "consolidation_id") and person.consolidation_id is not None and "consolidation_id" in self.combos:
-                    if not hasattr(self, "_consolidation_options"):
-                        self._refresh_consolidation_combo()
-                    try:
-                        for idx, c in enumerate(self._consolidation_options):
-                            if c.get("consolidation_id") == person.consolidation_id:
-                                self.combos["consolidation_id"].current(idx)
-                                break
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-            # Select CDB combo based on person's cdb (which stores cdb_id)
-            try:
-                if hasattr(person, "cdb") and person.cdb is not None and "cdb" in self.combos:
-                    # ensure _cdb_options is loaded
-                    try:
-                        if not hasattr(self, "_cdb_options"):
-                            self._refresh_cdb_combo()
-                    except Exception:
-                        pass
-
-                    try:
-                        for idx, c in enumerate(self._cdb_options):
-                            if c.get("cdb_id") == person.cdb:
-                                self.combos["cdb"].current(idx)
-                                break
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
+        # populate fields and combos using helpers
+        try:
+            self._populate_basic_fields(person)
+            self._set_baptized(person)
+            self._load_ministry_and_area(person)
+            self._select_consolidation(person)
+            self._select_cdb(person)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -314,6 +326,9 @@ class ModifyPersonFrame(BaseFrame):
         try:
             self.controller.update_person(self.person_id, payload)
             messagebox.showinfo("OK", "Persona actualizada")
+            if self._on_data_changed:
+                self._on_data_changed()
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -328,6 +343,9 @@ class ModifyPersonFrame(BaseFrame):
         try:
             self.controller.delete_person(self.person_id)
             messagebox.showinfo("OK", "Persona eliminada")
+            if self._on_data_changed:
+                self._on_data_changed()
+
 
         # limpiar formulario
             for entry in self.entries.values():

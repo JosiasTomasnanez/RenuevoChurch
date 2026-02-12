@@ -15,6 +15,13 @@ class AddPersonFrame(BaseFrame):
         self.config_service = config_service
         self._open_modify_cb = open_modify_callback
         self.config(bg=self.BG_PRIMARY)
+        
+        # Initialize option lists
+        self._ministry_options = []
+        self._area_options = []
+        self._consolidation_options = []
+        self._cdb_options = []
+        
         self._build()
 
     def _build(self):
@@ -118,11 +125,8 @@ class AddPersonFrame(BaseFrame):
             return
         try:
             consolidations = self.config_service.get_all_consolidations()
-            self._consolidation_options = []
-            labels = []
-            for c in consolidations:
-                self._consolidation_options.append(c["consolidation_id"])
-                labels.append(c["level"])
+            self._consolidation_options = consolidations
+            labels = [c["level"] for c in consolidations]
             self.combos["consolidation_id"]["values"] = labels
         except Exception:
             pass
@@ -133,11 +137,8 @@ class AddPersonFrame(BaseFrame):
             return
         try:
             cdb_options = self.config_service.get_all_cdb_options()
-            self._cdb_options = []
-            labels = []
-            for cdb in cdb_options:
-                self._cdb_options.append(cdb["cdb_id"])
-                labels.append(str(cdb["number"]))
+            self._cdb_options = cdb_options
+            labels = [str(cdb["number"]) for cdb in cdb_options]
             self.combos["cdb"]["values"] = labels
         except Exception:
             pass
@@ -206,14 +207,14 @@ class AddPersonFrame(BaseFrame):
         # Consolidation
         cons_idx = self.combos["consolidation_id"].current()
         if cons_idx >= 0 and hasattr(self, "_consolidation_options"):
-            payload["consolidation_id"] = self._consolidation_options[cons_idx]
+            payload["consolidation_id"] = self._consolidation_options[cons_idx]["consolidation_id"]
         else:
             payload["consolidation_id"] = None
         
         # CDB
         cdb_idx = self.combos["cdb"].current()
         if cdb_idx >= 0 and hasattr(self, "_cdb_options"):
-            payload["cdb"] = self._cdb_options[cdb_idx]
+            payload["cdb"] = self._cdb_options[cdb_idx]["cdb_id"]
         else:
             payload["cdb"] = None
         
@@ -243,7 +244,8 @@ class AddPersonFrame(BaseFrame):
         except Exception as exc:
             messagebox.showerror("Error", str(exc))
     
-    def refresh(self):
+    def refresh_dropdowns(self):
+        """Refresh all dropdown lists (called when config changes)."""
         self._refresh_ministry_combo()
         self._refresh_area_combo()
         self._refresh_consolidation_combo()

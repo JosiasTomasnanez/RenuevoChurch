@@ -72,7 +72,8 @@ def _build_main_window(app):
             self.frames["modify"] = ModifyPersonFrame(
                 container,
                 controller=self.controller,
-                config_service=self.config_controller
+                config_service=self.config_controller,
+                on_data_changed=lambda: self.frames["search"]._on_search()
             )
             self.frames["config"] = ConfigurationFrame(
                 container,
@@ -82,11 +83,14 @@ def _build_main_window(app):
             # Register refresh callbacks with config frame
             add_frame = self.frames.get("add")
             modify_frame = self.frames.get("modify")
+            search_frame = self.frames.get("search")
             config_frame = self.frames.get("config")
             if add_frame and config_frame:
                 config_frame._register_refresh_callback(add_frame.refresh_dropdowns)
             if modify_frame and config_frame:
                 config_frame._register_refresh_callback(modify_frame.refresh_dropdowns)
+            if search_frame and config_frame:
+                config_frame._register_refresh_callback(search_frame.refresh_dropdowns)
 
             # Wire the search frame so it can open the modify frame directly
             try:
@@ -94,8 +98,6 @@ def _build_main_window(app):
                 modify_frame = self.frames.get("modify")
                 if search_frame is not None:
                     search_frame._open_modify_cb = self._open_modify
-                if modify_frame is not None:
-                    modify_frame._on_deleted_cb = lambda: search_frame._on_search()
             except Exception:
                 pass
 

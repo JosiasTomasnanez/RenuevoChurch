@@ -374,6 +374,7 @@ class ConfigurationFrame(BaseFrame):
             self.config_service.create_consolidation(level)
             self.consolidation_name_entry.delete(0, "end")
             self._refresh_consolidations()
+            self._notify_changes()
             messagebox.showinfo("OK", "Nivel de consolidación agregado")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -390,6 +391,7 @@ class ConfigurationFrame(BaseFrame):
         try:
             self.config_service.update_consolidation(self._selected_consolidation_id, level)
             self._refresh_consolidations()
+            self._notify_changes()
             self.consolidation_name_entry.delete(0, "end")
             messagebox.showinfo("OK", "Nivel de consolidación actualizado")
         except Exception as e:
@@ -405,6 +407,7 @@ class ConfigurationFrame(BaseFrame):
         try:
             self.config_service.delete_consolidation(self._selected_consolidation_id)
             self._refresh_consolidations()
+            self._notify_changes()
             self.consolidation_name_entry.delete(0, "end")
             messagebox.showinfo("OK", "Nivel de consolidación eliminado")
         except Exception as e:
@@ -443,6 +446,7 @@ class ConfigurationFrame(BaseFrame):
             self.config_service.create_cdb(number)
             self.cdb_number_entry.delete(0, "end")
             self._refresh_cdb()
+            self._notify_changes()
             messagebox.showinfo("OK", "CDB agregado")
         except ValueError:
             messagebox.showerror("Error", "El número de CDB debe ser un entero")
@@ -462,6 +466,7 @@ class ConfigurationFrame(BaseFrame):
             number = int(number_str)
             self.config_service.update_cdb(self._selected_cdb_id, number)
             self._refresh_cdb()
+            self._notify_changes()
             self.cdb_number_entry.delete(0, "end")
             messagebox.showinfo("OK", "CDB actualizado")
         except ValueError:
@@ -479,6 +484,7 @@ class ConfigurationFrame(BaseFrame):
         try:
             self.config_service.delete_cdb(self._selected_cdb_id)
             self._refresh_cdb()
+            self._notify_changes()
             self.cdb_number_entry.delete(0, "end")
             messagebox.showinfo("OK", "CDB eliminado")
         except Exception as e:
