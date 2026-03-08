@@ -19,10 +19,20 @@ class Person:
 	first_name: Optional[str]
 	last_name: Optional[str]
 	email: Optional[str]
+	birthdate: Optional[str]
 	dni: Optional[int]
 	phone_number: Optional[str]
-
-
+	marital_status: Optional[str]
+	social_security: Optional[str]
+	baptized: Optional[bool]
+	cdb: Optional[int]  # CDB house ID (foreign key to cdb table, can be None)
+	# Foreign keys
+	address_id: Optional[int]
+	trusted_person_id: Optional[int]
+	ministry_id: Optional[int]
+	ministry_area_id: Optional[int]
+	consolidation_id: Optional[int]
+	future_ministry_area_id: Optional[int]
 
 	# Address object (optional)
 	address: Optional[Address] = None
@@ -80,8 +90,19 @@ class Person:
 				first_name=data.get("first_name"),
 				last_name=data.get("last_name"),
 				email=data.get("email"),
+				birthdate=data.get("birthdate"),
 				dni=data.get("dni"),
 				phone_number=data.get("phone_number"),
+				marital_status=data.get("marital_status"),
+				social_security=data.get("social_security"),
+				baptized=data.get("baptized"),
+				cdb=data.get("cdb"),
+				address_id=data.get("address_id"),
+				trusted_person_id=data.get("trusted_person_id"),
+				ministry_id=data.get("direct_ministry_id"),  # Direct ministry assignment
+				ministry_area_id=data.get("ministry_area_id"),
+				consolidation_id=data.get("consolidation_id"),
+				future_ministry_area_id=data.get("future_ministry_area_id"),
 				address=addr,
 				ministry_area=area,
 				ministry=ministry,
@@ -123,8 +144,19 @@ class Person:
 			first_name=Person._get(p, "first_name"),
 			last_name=Person._get(p, "last_name"),
 			email=Person._get(p, "email"),
+			birthdate=Person._get(p, "birthdate"),
 			dni=Person._get(p, "dni"),
 			phone_number=Person._get(p, "phone_number"),
+			marital_status=Person._get(p, "marital_status"),
+			social_security=Person._get(p, "social_security"),
+			baptized=Person._get(p, "baptized"),
+			cdb=Person._get(p, "cdb"),
+			address_id=Person._get(p, "address_id"),
+			trusted_person_id=Person._get(p, "trusted_person_id"),
+			ministry_id=Person._get(p, "ministry_id"),
+			ministry_area_id=Person._get(p, "ministry_area_id"),
+			consolidation_id=Person._get(p, "consolidation_id"),
+			future_ministry_area_id=Person._get(p, "future_ministry_area_id"),
 			address=address,
 			ministry_area=area,
 			ministry=ministry,

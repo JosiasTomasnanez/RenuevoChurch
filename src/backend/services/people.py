@@ -3,9 +3,16 @@
 This small service wraps the repository helpers and maps database rows into
 typed `Person` objects from `src.backend.models.person`.
 """
-from typing import List
+from typing import List, Optional
 
-from ..db.repositories import find_people_by_neighborhood, find_people_by_ministry
+from ..db.repositories import (
+	find_people_by_neighborhood,
+	find_people_by_ministry,
+	find_people_by_name,
+	find_person_by_id,
+	create_person as _repo_create,
+	update_person as _repo_update,
+)
 from ..models.person import Person
 from ..db.repositories import get_area_and_ministry
 
@@ -24,6 +31,69 @@ def get_people_by_ministry(ministry_id: int) -> List[Person]:
 
 __all__ = ["get_people_by_neighborhood", "get_people_by_ministry"]
 
+
+def get_people_by_name(name: str, partial: bool = True) -> List[Person]:
+	"""Return Person objects that match first name or last name.
+
+	Partial matching is enabled by default so searching for 'An' will match
+	'Ana' and 'Andrew'.
+	"""
+	# Normalize query before calling the repository: trim whitespace.
+	# We intentionally do NOT force lowercasing here so callers that include
+	# special characters (like 'Ñ') keep their original form and the
+	# repository can handle special-case matching for such characters.
+	q = (name or "")
+	q = q.strip()
+	q_for_repo = q
+
+	rows = find_people_by_name(q_for_repo, partial=partial)
+	people = [Person.from_dict(r) for r in rows]
+
+	# Perform a Unicode-aware casefold prefix/equality check on the
+	# service layer so searches match characters like 'ñ' vs 'Ñ'. SQLite's
+	# built-in case-insensitive matching is ASCII-only on many builds, so
+	# we enforce the requested semantics here.
+	q = (name or "")
+	if not q:
+		return people
+
+	q_fold = q.casefold()
+
+	def matches(p: Person) -> bool:
+		# match against first_name or last_name
+		for field in (p.first_name, p.last_name):
+			if field is None:
+				continue
+			f = str(field).casefold()
+			if partial:
+				if f.startswith(q_fold):
+					return True
+			else:
+				if f == q_fold:
+					return True
+		return False
+
+	return [p for p in people if matches(p)]
+
+
+__all__.append("get_people_by_name")
+
+
+def get_all_people() -> List[Person]:
+	"""Return all people from the database as Person objects."""
+	try:
+		from ..db.repositories import find_all_people
+
+		rows = find_all_people()
+	except Exception:
+		# If the repository helper isn't available, return empty list
+		return []
+
+	return [Person.from_dict(r) for r in rows]
+
+
+__all__.append("get_all_people")
+
 def get_area_and_ministry_service(area_id: int):
 	"""Small convenience service wrapper around the repository helper.
 
@@ -33,4 +103,71 @@ def get_area_and_ministry_service(area_id: int):
 
 
 __all__.append("get_area_and_ministry_service")
+
+
+def delete_person(person_id: int) -> bool:
+	"""Delete a person by id using repository helpers.
+
+	Returns True when deletion succeeded (person removed), False otherwise.
+	"""
+	try:
+		from ..db.repositories import delete_person as _repo_delete
+
+		return bool(_repo_delete(person_id))
+	except Exception:
+		return False
+
+
+__all__.append("delete_person")
+
+
+def create_person(payload: dict) -> int:
+	"""Create a new person with optional address.
+
+	Args:
+		payload: Dictionary with person/address fields (first_name, last_name, email, dni,
+				phone_number, street, neighborhood, house_number).
+
+	Returns:
+		The id of the newly created person.
+	"""
+	return _repo_create(payload)
+
+
+__all__.append("create_person")
+
+
+def get_person(person_id: int) -> Optional[Person]:
+	"""Fetch a single person by id.
+
+	Returns:
+		A Person object or None if not found.
+	"""
+	if person_id is None:
+		return None
+
+	row = find_person_by_id(person_id)
+	if row is None:
+		return None
+
+	return Person.from_dict(row)
+
+
+__all__.append("get_person")
+
+
+def update_person(person_id: int, payload: dict) -> bool:
+	"""Update person and/or address fields.
+
+	Args:
+		person_id: The id of the person to update.
+		payload: Dictionary with fields to update.
+
+	Returns:
+		True if update succeeded, False otherwise.
+	"""
+	return _repo_update(person_id, payload)
+
+
+__all__.append("update_person")
 
