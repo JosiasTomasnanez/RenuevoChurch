@@ -12,6 +12,9 @@ from ..db.repositories import (
 	find_person_by_id,
 	create_person as _repo_create,
 	update_person as _repo_update,
+	list_memberships_by_person,
+	find_person_ids_by_ministry,
+	set_memberships_for_person,
 )
 from ..models.person import Person
 from ..db.repositories import get_area_and_ministry
@@ -24,9 +27,20 @@ def get_people_by_neighborhood(neighborhood: str, partial: bool = False) -> List
 
 
 def get_people_by_ministry(ministry_id: int) -> List[Person]:
-	"""Return Person objects for people that belong to the given ministry id."""
-	rows = find_people_by_ministry(ministry_id)
-	return [Person.from_dict(r) for r in rows]
+	"""Return Person objects for people that belong to the given ministry id.
+
+	This implementation uses the person_ministry join table to support
+	multiple memberships per person. For now it returns one Person per
+	person_id; membership details can be obtained via
+	`get_memberships_for_person`.
+	"""
+	person_ids = find_person_ids_by_ministry(ministry_id)
+	people: List[Person] = []
+	for pid in person_ids:
+		p = get_person(pid)
+		if p is not None:
+			people.append(p)
+	return people
 
 
 __all__ = ["get_people_by_neighborhood", "get_people_by_ministry"]
@@ -105,6 +119,14 @@ def get_area_and_ministry_service(area_id: int):
 __all__.append("get_area_and_ministry_service")
 
 
+def get_memberships_for_person(person_id: int):
+	"""Return raw membership dicts for a given person_id."""
+	return list_memberships_by_person(person_id)
+
+
+__all__.append("get_memberships_for_person")
+
+
 def delete_person(person_id: int) -> bool:
 	"""Delete a person by id using repository helpers.
 
@@ -170,4 +192,17 @@ def update_person(person_id: int, payload: dict) -> bool:
 
 
 __all__.append("update_person")
+
+
+def update_person_memberships(person_id: int, memberships: list) -> None:
+	"""Update the many-to-many memberships for a person.
+
+	`memberships` is a list of dicts with at least `ministry_id` and
+	optionally `area_id`. The `is_primary` flag is optional and not
+	required by the UI (all can be treated as no principal).
+	"""
+	set_memberships_for_person(person_id, memberships)
+
+
+__all__.append("update_person_memberships")
 

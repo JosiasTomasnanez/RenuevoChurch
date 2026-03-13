@@ -1,5 +1,6 @@
 from src.frontend.views._base import BaseFrame, tk, ttk
 
+
 class SearchPersonFrame(BaseFrame):
     # Pastel color scheme
     BG_PRIMARY = "#F0E6F6"      # Light purple
@@ -18,11 +19,14 @@ class SearchPersonFrame(BaseFrame):
         self.config(bg=self.BG_PRIMARY)
         
         # Initialize columns and filters before _build()
+        # Nota: la información de ministerios/áreas se muestra en el panel
+        # de detalles inferior, por eso no hay una columna visible de "Ministerio".
         self._all_cols = (
             "person_id", "first_name", "last_name", "email", "birthdate",
             "dni", "phone_number", "marital_status", "social_security",
             "baptized", "cdb", "street", "neighborhood", "house_number",
-            "ministry", "consolidation_id"
+            "consolidation_id",
+            "ministry"
         )
         self._headers = {
             "person_id": "ID",
@@ -39,8 +43,8 @@ class SearchPersonFrame(BaseFrame):
             "street": "Calle",
             "neighborhood": "Barrio",
             "house_number": "Nro Casa",
-            "ministry": "Ministerio",
             "consolidation_id": "Consolidación",
+            "ministry": "Ministerio"
         }
         _defaults = {"person_id", "first_name", "last_name", "dni", "phone_number", "neighborhood"}
         self._col_vars = {c: tk.BooleanVar(value=(c in _defaults)) for c in self._all_cols}
@@ -104,6 +108,9 @@ class SearchPersonFrame(BaseFrame):
         # Create the results tree according to currently selected columns
         self._create_tree()
 
+        # Details panel for memberships (ministries/areas)
+        self._build_details_panel()
+        self.details_frame.pack_forget()
         # Allow double-click to open modify (bonus) and track selection for button
         self.tree.bind("<Double-1>", self._on_modify_selected)
         self.tree.bind("<ButtonRelease-1>", self._on_tree_select)
@@ -135,9 +142,16 @@ class SearchPersonFrame(BaseFrame):
             else:
                 self.tree.insert("", "end", values=tuple(values))
 
+        # Update details panel based on current selection (if any)
+        self._update_details_panel()
+
     def _get_cell_value(self, row, col):
         # row es un objeto Person
         # Mostrar número de CDB en lugar de su id
+        if col == "ministry":
+            name = self._get_person_ministry_name(row)
+            return "" if name is None else name
+        
         if col == "cdb":
             try:
                 cdb_id = getattr(row, "cdb", None)
@@ -166,22 +180,6 @@ class SearchPersonFrame(BaseFrame):
                 return str(cdb_id)
             except Exception:
                 return str(cdb_id)
-        if col == "ministry":
-            # Obtener el ministerio y el área
-            min_name = row.ministry.name if row.ministry else ""
-            area_name = row.ministry_area.area if row.ministry_area else ""
-            
-            # Mostrar ministerio / área si ambos existen
-            if min_name and area_name:
-                return f"{min_name} / {area_name}"
-            # Si solo hay ministerio, mostrar ministerio
-            if min_name:
-                return min_name
-            # Si solo hay área, mostrar área
-            if area_name:
-                return area_name
-            return ""
-
         # columnas de la persona
         if hasattr(row, col):
             val = getattr(row, col)
@@ -202,9 +200,13 @@ class SearchPersonFrame(BaseFrame):
         return [c for c in self._all_cols if self._col_vars[c].get()]
 
     def _on_columns_changed(self):
-        # recreate tree to reflect new column set and refresh contents
         self._create_tree()
         self._on_search()
+
+        if self._col_vars.get("ministry") and self._col_vars["ministry"].get():
+            self.details_frame.pack(fill="x", padx=6, pady=(0, 6))
+        else:
+            self.details_frame.pack_forget()
 
     def _create_tree(self):
         # destroy existing tree if present
@@ -226,6 +228,100 @@ class SearchPersonFrame(BaseFrame):
 
         self.tree.pack(fill="both", expand=True, padx=6, pady=6)
 
+    def _build_details_panel(self):
+        """Build a panel to show ministries/areas for the selected person."""
+
+        self.details_frame = tk.Frame(self, bg=self.BG_PRIMARY)
+        self.details_frame.pack(fill="x", padx=6, pady=(0, 6))
+
+        top_row = tk.Frame(self.details_frame, bg=self.BG_PRIMARY)
+        top_row.pack(fill="x")
+
+        tk.Label(
+            top_row,
+            text="Ministerios / Áreas:",
+            bg=self.BG_PRIMARY,
+            fg=self.TEXT_DARK,
+        ).pack(side="left")
+
+        # botón cargar
+        tk.Button(
+            top_row,
+            text="Cargar",
+            command=self._load_memberships,
+            bg=self.BTN_COLOR,
+            fg="white",
+            relief="raised",
+            bd=1,
+            activebackground="#5A2A77"
+        ).pack(side="right")
+
+        self.details_list = tk.Listbox(
+            self.details_frame,
+            height=4,
+            bg=self.BG_INPUT,
+            fg=self.TEXT_DARK,
+            relief="solid",
+            bd=1,
+        )
+
+        self.details_list.pack(fill="x", padx=0, pady=(4, 0))
+
+   
+    def _load_memberships(self):
+        """Load ministries for the selected person when pressing button."""
+
+        self.details_list.delete(0, "end")
+
+        sel = self.tree.selection()
+        if not sel:
+            return
+
+        item = sel[0]
+
+        try:
+            pid = int(item)
+        except Exception:
+            values = self.tree.item(item, "values")
+            if not values:
+                return
+            try:
+                pid = int(values[0])
+            except Exception:
+                return
+
+        memberships = []
+
+        try:
+            # usar mismo método que Modify
+            if hasattr(self.controller, "get_memberships"):
+                memberships = self.controller.get_memberships(pid) or []
+        except Exception:
+            memberships = []
+
+        if not memberships:
+            self.details_list.insert("end", "Sin ministerios")
+            return
+
+        for rm in memberships:
+
+            ministry = rm.get("ministry") or {}
+            area = rm.get("area") or {}
+
+            ministry_name = ministry.get("name") or ""
+            area_name = area.get("area") or ""
+
+            if ministry_name and area_name:
+                label = f"{ministry_name} / {area_name}"
+            elif ministry_name:
+                label = ministry_name
+            elif area_name:
+                label = area_name
+            else:
+                label = "(sin nombre)"
+
+            self.details_list.insert("end", label)
+   
     def _on_modify_selected(self, event=None):
         """Load the currently selected row into the Modify form.
 
@@ -271,6 +367,7 @@ class SearchPersonFrame(BaseFrame):
         else:
             self.modify_btn.config(state="disabled")
 
+
     def _on_modify_button(self):
         """Load the selected person into modify frame when button clicked."""
         sel = self.tree.selection()
@@ -307,7 +404,33 @@ class SearchPersonFrame(BaseFrame):
         if filter_name == "neighborhood":
             return [r for r in results if self._get_cell_value(r, "neighborhood") == value]
         if filter_name == "ministry":
-            # compare by ministry name (not id). Use helper to extract ministry name
+            # Filter by ministry using memberships (backend service) when possible.
+            try:
+                svc = getattr(self.controller, "services", None)
+                cfg = self.config_service
+
+                # Resolve ministry_id from its name using config_service if available
+                ministry_id = None
+                if cfg is not None:
+                    ministries = cfg.get_all_ministries()
+                    for m in ministries:
+                        if m.get("name") == value:
+                            ministry_id = m.get("ministry_id")
+                            break
+                if ministry_id is not None and svc is not None:
+                    people_svc = getattr(svc, "people", None)
+                    if people_svc is not None:
+                        matched_people = self.controller.get_people_by_ministry(ministry_id)
+                        allowed_ids = {self._get_person_id(p) for p in matched_people}
+                        return [
+                            r
+                            for r in results
+                            if self._get_person_id(r) in allowed_ids
+                        ]
+            except Exception:
+                # Fallback to previous behaviour using single ministry name
+                return [r for r in results if self._get_person_ministry_name(r) == value]
+            # If we couldn't resolve ministry via backend, fall back to name-based filter
             return [r for r in results if self._get_person_ministry_name(r) == value]
         if filter_name == "cdb":
             # compare by CDB number (string)
@@ -340,6 +463,21 @@ class SearchPersonFrame(BaseFrame):
                 return sorted(vals)
 
             if filter_name == "ministry":
+                # Prefer listing all configured ministries so the filter sees
+                # ministries even if nobody is currently assigned in primary slot.
+                try:
+                    if (
+                        hasattr(self, "config_service")
+                        and self.config_service is not None
+                    ):
+                        mins = self.config_service.get_all_ministries()
+                        names = [m.get("name") for m in mins if m.get("name")]
+                        if names:
+                            return sorted(set(names))
+                except Exception:
+                    pass
+
+                # Fallback: infer from current people (using primary ministry only)
                 vals = set()
                 for p in people:
                     name = self._get_person_ministry_name(p)
@@ -519,6 +657,66 @@ class SearchPersonFrame(BaseFrame):
             parts.append(f"ministerio: {self._active_filters.get('ministry')}")
         self.filter_label.config(text=("Filtro " + " | ".join(parts)) if parts else "")
         self._on_search()
+
+    def _update_details_panel(self):
+        """Populate the details panel with ministries/areas for the selected person."""
+        if not hasattr(self, "details_list"):
+            return
+
+        self.details_list.delete(0, "end")
+
+        sel = self.tree.selection() if hasattr(self, "tree") else ()
+        if not sel:
+            return
+
+        item = sel[0]
+        pid = None
+        try:
+            pid = int(item)
+        except Exception:
+            values = self.tree.item(item, "values")
+            if values:
+                try:
+                    pid = int(values[0])
+                except Exception:
+                    pid = None
+
+        if pid is None:
+            return
+
+        # Fetch memberships via controller (delegates to backend service)
+        memberships = []
+        try:
+            svc = getattr(self.controller, "services", None)
+            if svc is not None:
+                people_svc = getattr(svc, "people", None)
+                if people_svc is not None:
+                    memberships = self.controller.get_memberships(pid) or []
+        except Exception:
+            memberships = []
+
+        if not memberships:
+            # If there are no memberships stored yet, at least show primary ministry/area if present
+            # by reusing the existing helpers.
+            # We need the Person object corresponding to this row; easiest is to search in latest results.
+            return
+
+        for m in memberships:
+            ministry = m.get("ministry") or {}
+            area = m.get("area") or {}
+            min_name = ministry.get("name") or ""
+            area_name = area.get("area") or ""
+
+            if min_name and area_name:
+                label = f"{min_name} / {area_name}"
+            elif min_name:
+                label = min_name
+            elif area_name:
+                label = area_name
+            else:
+                label = "(sin nombre)"
+
+            self.details_list.insert("end", label)
 
     def refresh_dropdowns(self):
         """Refresh search results to reflect updated config."""

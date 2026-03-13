@@ -41,7 +41,17 @@ class PersonController:
 			The id of the newly created person.
 		"""
 		return self.services.people.create_person(payload)
+	def get_people_by_ministry(self, ministry_id: int):
+		"""Return people that belong to a given ministry."""
+		if ministry_id is None:
+			return []
 
+		try:
+			return self.services.people.get_people_by_ministry(ministry_id)
+		except Exception:
+			logger.exception("Error fetching people for ministry %s", ministry_id)
+			return []
+		
 	def search(self, query: str, partial: bool = True) -> List:
 		"""Search people by first or last name.
 
@@ -119,12 +129,22 @@ class PersonController:
 		"""
 		if person_id is None:
 			return False
-
 		try:
 			return self.services.people.delete_person(person_id)
 		except Exception:
 			logger.exception("Error deleting person %s", person_id)
 			return False
+
+	def get_memberships(self, person_id: int):
+		"""Return ministry memberships for a person using the backend service."""
+		if person_id is None:
+			return []
+
+		try:
+			return self.services.people.get_memberships_for_person(person_id)
+		except Exception:
+			logger.exception("Error fetching memberships for person %s", person_id)
+			return []
 
 
 # module level singleton / helper

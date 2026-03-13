@@ -14,6 +14,11 @@ from .person_repository import (
     update_person as update_person,
 )
 from .ministry_repository import get_area_and_ministry
+from .person_ministry_repository import (
+    list_memberships_by_person as list_memberships_by_person,
+    set_memberships_for_person as set_memberships_for_person,
+    find_person_ids_by_ministry as find_person_ids_by_ministry,
+)
 from .config_repository import (
     get_all_ministries as get_all_ministries,
     get_ministry_by_id as get_ministry_by_id,
@@ -47,6 +52,9 @@ __all__ = [
     "delete_person",
     "create_person",
     "update_person",
+    "list_memberships_by_person",
+    "set_memberships_for_person",
+    "find_person_ids_by_ministry",
     "get_area_and_ministry",
     "get_all_ministries",
     "get_ministry_by_id",

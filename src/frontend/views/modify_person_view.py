@@ -34,8 +34,17 @@ class ModifyPersonFrame(BaseFrame):
     # ---------------- UI ----------------
 
     def _build(self):
-        frm = tk.Frame(self, bg=self.BG_PRIMARY)
-        frm.pack(padx=10, pady=10, fill="x")
+        main = tk.Frame(self, bg=self.BG_PRIMARY)
+        main.pack(padx=10, pady=10, fill="both", expand=True)
+
+        # columna izquierda (datos)
+        left = tk.Frame(main, bg=self.BG_PRIMARY)
+        left.pack(side="left", fill="both", expand=True)
+
+        # columna derecha (ministerios)
+        right = tk.Frame(main, bg=self.BG_PRIMARY)
+        right.pack(side="right", fill="y", padx=(20, 0))
+        frm = left
 
         fields = [
             ("person_id", "ID Persona"),
@@ -50,8 +59,7 @@ class ModifyPersonFrame(BaseFrame):
             ("street", "Calle"),
             ("neighborhood", "Barrio"),
             ("house_number", "Número de casa"),
-            ("ministry_id", "Ministerio"),
-            ("area_id", "Área"),
+            # Ministry/area assignments handled by dedicated editor below
             ("consolidation_id", "Nivel de consolidación"),
             ("cdb", "¿CDB?"),
             ("baptized", "¿Bautizado?"),
@@ -68,18 +76,6 @@ class ModifyPersonFrame(BaseFrame):
 
                 load_btn = tk.Button(frm, text="Cargar", command=self._on_load, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
                 load_btn.grid(row=i, column=2, padx=4)
-
-            elif key == "ministry_id":
-                combo = ttk.Combobox(frm, width=37, state="readonly")
-                combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
-                combo.bind("<<ComboboxSelected>>", self._on_ministry_selected)
-                self.combos[key] = combo
-                self._refresh_ministry_combo()
-
-            elif key == "area_id":
-                combo = ttk.Combobox(frm, width=37, state="readonly")
-                combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
-                self.combos[key] = combo
 
             elif key == "consolidation_id":
                 combo = ttk.Combobox(frm, width=37, state="readonly")
@@ -106,6 +102,62 @@ class ModifyPersonFrame(BaseFrame):
                 e.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = e
 
+       # Membership editor (igual que AddPersonFrame)
+        lbl = tk.Label(right, text="Asignaciones (ministerio / área)", bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
+        lbl.grid(row=0, column=0, sticky="nw", padx=6, pady=(0, 3))
+
+        mem_frame = tk.Frame(right, bg=self.BG_PRIMARY)
+        mem_frame.grid(row=1, column=0, sticky="nwe", padx=6, pady=(0, 3))
+
+        self._membership_frame = mem_frame
+
+        self._mem_ministry_combo = ttk.Combobox(mem_frame, width=20, state="readonly")
+        self._mem_area_combo = ttk.Combobox(mem_frame, width=20, state="readonly")
+
+        self._mem_ministry_combo.grid(row=0, column=0, padx=(0, 4), pady=2, sticky="w")
+        self._mem_area_combo.grid(row=0, column=1, padx=(0, 4), pady=2, sticky="w")
+
+        self._mem_ministry_combo.bind("<<ComboboxSelected>>", self._on_ministry_selected)
+
+        tk.Button(
+            mem_frame,
+            text="Agregar asignación",
+            command=self._on_add_membership,
+            bg=self.BTN_COLOR,
+            fg="white",
+            relief="raised",
+            bd=1,
+            activebackground="#5A2A77",
+        ).grid(row=0, column=3, padx=(0, 4), pady=2, sticky="w")
+
+        self._membership_list = tk.Listbox(
+            mem_frame,
+            height=4,
+            bg=self.BG_INPUT,
+            fg=self.TEXT_DARK,
+            relief="solid",
+            bd=1,
+        )
+        self._membership_list.grid(row=1, column=0, columnspan=3, sticky="we", pady=(4, 0))
+
+        tk.Button(
+            mem_frame,
+            text="Quitar seleccionada",
+            command=self._on_remove_membership,
+            bg="#A83030",
+            fg="white",
+            relief="raised",
+            bd=1,
+            activebackground="#8A1010",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
+        mem_frame.columnconfigure(0, weight=1)
+        # Internal memberships list
+        self._memberships = []
+
+        # Initialize combos for membership editor
+        self._refresh_ministry_combo()
+
         save_btn = tk.Button(frm, text="Guardar cambios", command=self._on_save, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
         save_btn.grid(row=len(fields) + 1, column=0, pady=10, padx=5, sticky="e")
 
@@ -121,12 +173,12 @@ class ModifyPersonFrame(BaseFrame):
             ministries = self.config_service.get_all_ministries()
             self._ministry_options = ministries
             names = [m["name"] for m in ministries]
-            self.combos["ministry_id"]["values"] = names
+            self._mem_ministry_combo["values"] = names
         except Exception:
             pass
 
     def _on_ministry_selected(self, event=None):
-        idx = self.combos["ministry_id"].current()
+        idx = self._mem_ministry_combo.current()
         if idx < 0:
             return
 
@@ -136,8 +188,8 @@ class ModifyPersonFrame(BaseFrame):
             areas = self.config_service.get_areas_by_ministry(ministry_id)
             self._area_options = areas
             labels = [a["area"] for a in areas]
-            self.combos["area_id"]["values"] = labels
-            self.combos["area_id"].set("")
+            self._mem_area_combo["values"] = labels
+            self._mem_area_combo.set("")
         except Exception:
             pass
 
@@ -175,56 +227,68 @@ class ModifyPersonFrame(BaseFrame):
             pass
 
     def _load_ministry_and_area(self, person):
-        # Ensure ministry list is available
+        # Load memberships for this person and populate the editor.
+        self._memberships = []
+        self._membership_list.delete(0, tk.END)
+
+        try:
+            if hasattr(self.controller, "get_memberships") and self.person_id is not None:
+                raw_memberships = self.controller.get_memberships(self.person_id) or []
+            else:
+                raw_memberships = []
+        except Exception:
+            raw_memberships = []
+
+        if not raw_memberships:
+            return
+
+        # Ensure ministry list is available for name resolution
         try:
             if not self._ministry_options:
                 self._refresh_ministry_combo()
         except Exception:
             pass
 
-        # Try ministry_area_id first
-        try:
-            if hasattr(person, "ministry_area_id") and person.ministry_area_id:
-                area_info = None
-                try:
-                    area_info = self.controller.services.people.get_area_and_ministry_service(person.ministry_area_id)
-                except Exception:
-                    area_info = None
+        # Preload areas per ministry to speed up label building
+        areas_cache = {}
+        if self.config_service:
+            try:
+                for m in self._ministry_options:
+                    mid = m.get("ministry_id")
+                    if mid is not None and mid not in areas_cache:
+                        areas_cache[mid] = self.config_service.get_areas_by_ministry(mid)
+            except Exception:
+                areas_cache = {}
 
-                if area_info:
-                    area_data = area_info.get("area")
-                    ministry_data = area_info.get("ministry")
-                    if ministry_data:
-                        ministry_id = ministry_data.get("ministry_id")
-                        # select ministry
-                        for idx, m in enumerate(self._ministry_options):
-                            if m.get("ministry_id") == ministry_id:
-                                self.combos["ministry_id"].current(idx)
-                                break
-                        # load areas and select current
-                        try:
-                            areas = self.config_service.get_areas_by_ministry(ministry_id)
-                            self._area_options = areas
-                            labels = [a.get("area") for a in areas]
-                            self.combos["area_id"]["values"] = labels
-                            if area_data:
-                                current_area_id = area_data.get("area_id")
-                                for area_idx, a in enumerate(areas):
-                                    if a.get("area_id") == current_area_id:
-                                        self.combos["area_id"].current(area_idx)
-                                        break
-                        except Exception:
-                            pass
-                        return
+        for rm in raw_memberships:
+            ministry = rm.get("ministry") or {}
+            area = rm.get("area") or {}
+            ministry_id = ministry.get("ministry_id") or rm.get("ministry_id")
+            area_id = area.get("area_id") or rm.get("area_id")
 
-            # Fallback to ministry_id directly
-            if hasattr(person, "ministry_id") and person.ministry_id:
-                for idx, m in enumerate(self._ministry_options):
-                    if m.get("ministry_id") == person.ministry_id:
-                        self.combos["ministry_id"].current(idx)
+            ministry_name = ministry.get("name") or ""
+            if not ministry_name and ministry_id is not None:
+                for m in self._ministry_options:
+                    if m.get("ministry_id") == ministry_id:
+                        ministry_name = m.get("name") or ""
                         break
-        except Exception:
-            pass
+
+            area_name = area.get("area") or ""
+            if not area_name and ministry_id is not None and area_id is not None:
+                for a in areas_cache.get(ministry_id, []):
+                    if a.get("area_id") == area_id:
+                        area_name = a.get("area") or ""
+                        break
+
+            mem = {
+                "ministry_id": ministry_id,
+                "area_id": area_id,
+                "ministry_name": ministry_name,
+                "area_name": area_name,
+            }
+            self._memberships.append(mem)
+
+        self._refresh_membership_listbox()
 
     def _select_consolidation(self, person):
         try:
@@ -295,26 +359,9 @@ class ModifyPersonFrame(BaseFrame):
             if idx >= 0:
                 payload["consolidation_id"] = self._consolidation_options[idx]["consolidation_id"]
 
-        # ministry and area
-        min_idx = self.combos["ministry_id"].current()
-        selected_ministry_id = None
-        if min_idx >= 0 and hasattr(self, "_ministry_options"):
-            selected_ministry_id = self._ministry_options[min_idx]["ministry_id"]
-
-        area_idx = self.combos["area_id"].current()
-        
-        # If area is selected, use ministry_area_id (which links to ministry through the area)
-        if area_idx >= 0 and hasattr(self, "_area_options"):
-            payload["ministry_area_id"] = self._area_options[area_idx]["area_id"]
-            # ministry_id gets set from the area, not directly
-            payload["ministry_id"] = None
-        else:
-            # No area selected, so use ministry_id directly if ministry is selected
-            payload["ministry_area_id"] = None
-            if selected_ministry_id is not None:
-                payload["ministry_id"] = selected_ministry_id
-            else:
-                payload["ministry_id"] = None
+        # Ministry assignments now live in person_ministry; keep legacy fields empty
+        payload["ministry_area_id"] = None
+        payload["ministry_id"] = None
 
         cdb_idx = self.combos["cdb"].current()
         if cdb_idx >= 0:
@@ -325,6 +372,24 @@ class ModifyPersonFrame(BaseFrame):
 
         try:
             self.controller.update_person(self.person_id, payload)
+            # Persist memberships via backend services
+            try:
+                services = getattr(self.controller, "services", None)
+                if services is not None:
+                    people_svc = getattr(services, "people", None)
+                    if people_svc is not None and self._memberships:
+                        updater = getattr(people_svc, "update_person_memberships", None)
+                        if updater is not None:
+                            db_memberships = [
+                                {
+                                    "ministry_id": m.get("ministry_id"),
+                                    "area_id": m.get("area_id"),
+                                }
+                                for m in self._memberships
+                            ]
+                            updater(self.person_id, db_memberships)
+            except Exception:
+                pass
             messagebox.showinfo("OK", "Persona actualizada")
             if self._on_data_changed:
                 self._on_data_changed()
@@ -370,6 +435,10 @@ class ModifyPersonFrame(BaseFrame):
         if "baptized" in self.combos:
             self.combos["baptized"].set("No")
 
+        # clear memberships list
+        self._memberships = []
+        self._membership_list.delete(0, tk.END)
+
     def load_person_by_id(self, person_id: int):
         """Public method used by Search frame to load a person."""
         self.entries["person_id"].delete(0, tk.END)
@@ -381,9 +450,58 @@ class ModifyPersonFrame(BaseFrame):
         self._refresh_consolidation_combo()
         self._refresh_cdb_combo()
 
-        if "area_id" in self.combos:
-            self.combos["area_id"]["values"] = []
-            self.combos["area_id"].set("")
+        self._mem_area_combo["values"] = []
+        self._mem_area_combo.set("")
+
+    def _on_add_membership(self):
+        """Add a membership to the internal list and listbox."""
+        if not self._ministry_options:
+            self._refresh_ministry_combo()
+
+        min_idx = self._mem_ministry_combo.current()
+        if min_idx < 0 or min_idx >= len(self._ministry_options):
+            messagebox.showerror("Error", "Seleccione un ministerio")
+            return
+
+        ministry = self._ministry_options[min_idx]
+        ministry_id = ministry.get("ministry_id")
+        ministry_name = ministry.get("name") or ""
+
+        area_id = None
+        area_name = ""
+        area_idx = self._mem_area_combo.current()
+        if self._area_options and 0 <= area_idx < len(self._area_options):
+            area = self._area_options[area_idx]
+            area_id = area.get("area_id")
+            area_name = area.get("area") or ""
+
+        mem = {
+            "ministry_id": ministry_id,
+            "area_id": area_id,
+            "ministry_name": ministry_name,
+            "area_name": area_name,
+        }
+        self._memberships.append(mem)
+
+        self._refresh_membership_listbox()
+
+    def _refresh_membership_listbox(self):
+        if hasattr(self, "_membership_list"):
+            self._membership_list.delete(0, tk.END)
+        for m in self._memberships:
+            label = m.get("ministry_name") or ""
+            if m.get("area_name"):
+                label = f"{label} / {m.get('area_name')}"
+            self._membership_list.insert(tk.END, label)
+
+    def _on_remove_membership(self):
+        sel = self._membership_list.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        if 0 <= idx < len(self._memberships):
+            del self._memberships[idx]
+            self._refresh_membership_listbox()
 
 
     def _refresh_consolidation_combo(self):
