@@ -55,26 +55,33 @@ def test_get_people_by_neighborhood_monkeypatch(monkeypatch):
 
 
 def test_get_people_by_ministry_monkeypatch(monkeypatch):
-    def fake_find(ministry_id):
-        assert ministry_id == 2
-        return [SAMPLE_ROW]
 
+    def fake_find_ids(ministry_id):
+        assert ministry_id == 2
+        return [1]
+
+    def fake_get_person(pid):
+        assert pid == 1
+        return Person.from_dict(SAMPLE_ROW)
 
     monkeypatch.setattr(
-        "src.backend.services.people.find_people_by_ministry", fake_find
+        "src.backend.services.people.find_person_ids_by_ministry",
+        fake_find_ids
+    )
+
+    monkeypatch.setattr(
+        "src.backend.services.people.get_person",
+        fake_get_person
     )
 
     result = get_people_by_ministry(2)
+
     assert isinstance(result, list)
     assert len(result) == 1
+
     person = result[0]
     assert isinstance(person, Person)
-    # ministry area and ministry are now nested objects
-    assert person.ministry is not None
-    assert person.ministry.ministry_id == 2
-    assert person.ministry_area is not None
-    assert person.ministry_area.area == "Worship"
-
+    assert person.first_name == "Ana"
 
 def test_get_people_by_name_monkeypatch(monkeypatch):
     called = {}

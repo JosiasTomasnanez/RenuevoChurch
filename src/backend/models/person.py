@@ -5,7 +5,7 @@ by the service tests. They are simple dataclasses with a helper `from_dict`
 to map DB rows (or dicts returned by the repository) into typed objects.
 """
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 # Use separated model classes for clarity / extension
 from .address import Address
@@ -37,9 +37,11 @@ class Person:
 	# Address object (optional)
 	address: Optional[Address] = None
 
-	# Ministry area / ministry objects (optional)
+	# Ministry area / ministry objects (optional, single assignment view)
 	ministry_area: Optional[MinistryArea] = None
 	ministry: Optional[Ministry] = None
+	# Multiple memberships (many-to-many, richer view)
+	memberships: Optional[List[Dict[str, Any]]] = None
 
 	@staticmethod
 	def _get(d, k, default=None):
@@ -106,6 +108,7 @@ class Person:
 				address=addr,
 				ministry_area=area,
 				ministry=ministry,
+				memberships=None,
 			)
 
 		# nested mode
@@ -160,6 +163,7 @@ class Person:
 			address=address,
 			ministry_area=area,
 			ministry=ministry,
+			memberships=None,
 		)
 
 

@@ -124,17 +124,87 @@ class Database:
         # Migration: Add ministry_id column to person table if it doesn't exist
         try:
             with self.get_connection() as conn:
-                # Check if ministry_id column exists
                 cursor = conn.execute("PRAGMA table_info(person)")
                 columns = {row[1] for row in cursor.fetchall()}
-                
-                if 'ministry_id' not in columns:
-                    # Add the column
-                    conn.execute("""
-                    ALTER TABLE person ADD COLUMN ministry_id INTEGER REFERENCES ministry(ministry_id) ON DELETE SET NULL
-                    """)
+
+                if "ministry_id" not in columns:
+                    conn.execute(
+                        """
+                        ALTER TABLE person
+                        ADD COLUMN ministry_id INTEGER
+                        REFERENCES ministry(ministry_id)
+                        ON DELETE SET NULL
+                        """
+                    )
         except Exception:
             # Migration already applied or error — continue silently
+            pass
+
+        # Migration: Ensure person_ministry table exists and backfill data
+        try:
+            with self.get_connection() as conn:
+                # Create table if it does not exist (for existing databases)
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS person_ministry (
+                        person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
+                        ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
+                        area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
+                        is_primary BOOLEAN DEFAULT 0,
+                        PRIMARY KEY (person_id, ministry_id, area_id)
+                    )
+                    """
+                )
+
+                # Backfill from person.ministry_area_id when present
+                conn.execute(
+                    """
+                    INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
+                    SELECT
+                        p.person_id,
+                        ma.ministry_id,
+                        p.ministry_area_id,
+                        1
+                    FROM person p
+                    JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
+                    LEFT JOIN person_ministry pm
+                        ON pm.person_id = p.person_id
+                       AND pm.ministry_id = ma.ministry_id
+                       AND (pm.area_id = p.ministry_area_id OR (pm.area_id IS NULL AND p.ministry_area_id IS NULL))
+                    WHERE p.ministry_area_id IS NOT NULL
+                      AND pm.person_id IS NULL
+                    """
+                )
+
+                # Backfill from person.ministry_id when present and not already covered
+                conn.execute(
+                    """
+                    INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
+                    SELECT
+                        p.person_id,
+                        p.ministry_id,
+                        NULL,
+                        CASE
+                            WHEN NOT EXISTS (
+                                SELECT 1
+                                FROM person_ministry pm2
+                                WHERE pm2.person_id = p.person_id
+                                  AND pm2.is_primary = 1
+                            )
+                            THEN 1
+                            ELSE 0
+                        END AS is_primary
+                    FROM person p
+                    LEFT JOIN person_ministry pm
+                        ON pm.person_id = p.person_id
+                       AND pm.ministry_id = p.ministry_id
+                       AND pm.area_id IS NULL
+                    WHERE p.ministry_id IS NOT NULL
+                      AND pm.person_id IS NULL
+                    """
+                )
+        except Exception:
+            # If migration fails for any reason, continue without breaking startup
             pass
 
 
@@ -185,7 +255,7 @@ def _get_schema_statements() -> List[str]:
         )
         """,
 
-        # Ministry areas
+        # Ministry areas (each area belongs to a ministry, but ministries can have 0 areas)
         """
         CREATE TABLE IF NOT EXISTS ministry_area (
             area_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -213,6 +283,17 @@ def _get_schema_statements() -> List[str]:
             social_security TEXT,
             baptized BOOLEAN DEFAULT 0,
             cdb INTEGER REFERENCES cdb(cdb_id) ON DELETE SET NULL
+        )
+        """,
+
+        # Many-to-many between persons and ministries (optionally via areas)
+        """
+        CREATE TABLE IF NOT EXISTS person_ministry (
+            person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
+            ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
+            area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
+            is_primary BOOLEAN DEFAULT 0,
+            PRIMARY KEY (person_id, ministry_id, area_id)
         )
         """,
 
