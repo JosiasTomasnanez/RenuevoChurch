@@ -1,4 +1,6 @@
 # requirements.txt
+fastapi
+uvicorn[standard]
 
 # Testing
 pytest
