@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from src.backend.app import create_app
+from src.backend.app.main import create_app
 
 from .routers import people_router, config_router
 
