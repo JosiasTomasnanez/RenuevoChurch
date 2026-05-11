@@ -7,7 +7,6 @@ from typing import List, Optional
 
 from ..db.repositories import (
 	find_people_by_neighborhood,
-	find_people_by_ministry,
 	find_people_by_name,
 	find_person_by_id,
 	create_person as _repo_create,

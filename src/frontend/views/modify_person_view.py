@@ -203,23 +203,24 @@ class ModifyPersonFrame(BaseFrame):
 
     def _populate_basic_fields(self, person):
         # set id and simple fields + address nested fields
-        self.person_id = person.person_id
-        self.entries["person_id"].insert(0, str(person.person_id))
+        self.person_id =  person["person_id"]
+        self.entries["person_id"].delete(0, tk.END)
+        self.entries["person_id"].insert(0, str(person["person_id"]))
 
         for key, entry in self.entries.items():
             if key == "person_id":
                 continue
 
-            if hasattr(person, key) and getattr(person, key) is not None:
-                entry.insert(0, str(getattr(person, key)))
+            if key in person and person[key] is not None:
+                entry.insert(0, str(person[key]))
             elif key in ("street", "neighborhood", "house_number"):
-                addr = getattr(person, "address", None)
-                if addr and hasattr(addr, key) and getattr(addr, key) is not None:
-                    entry.insert(0, str(getattr(addr, key)))
+                addr = person.get("address")
+                if addr and key in addr and addr[key] is not None:
+                    entry.insert(0, str(addr[key]))
 
     def _set_baptized(self, person):
         try:
-            if hasattr(person, "baptized") and person.baptized:
+            if person.get("baptized"):
                 self.combos["baptized"].set("Sí")
             else:
                 self.combos["baptized"].set("No")
@@ -232,10 +233,7 @@ class ModifyPersonFrame(BaseFrame):
         self._membership_list.delete(0, tk.END)
 
         try:
-            if hasattr(self.controller, "get_memberships") and self.person_id is not None:
-                raw_memberships = self.controller.get_memberships(self.person_id) or []
-            else:
-                raw_memberships = []
+            raw_memberships = self.controller.get_memberships(self.person_id) or []
         except Exception:
             raw_memberships = []
 
@@ -292,10 +290,10 @@ class ModifyPersonFrame(BaseFrame):
 
     def _select_consolidation(self, person):
         try:
-            if hasattr(person, "consolidation_id") and person.consolidation_id is not None and "consolidation_id" in self.combos:
+            if person.get("consolidation_id") is not None and "consolidation_id" in self.combos:
                 self._refresh_consolidation_combo()
                 for idx, c in enumerate(self._consolidation_options):
-                    if c.get("consolidation_id") == person.consolidation_id:
+                    if c.get("consolidation_id") == person.get("consolidation_id"):
                         self.combos["consolidation_id"].current(idx)
                         break
         except Exception:
@@ -303,10 +301,10 @@ class ModifyPersonFrame(BaseFrame):
 
     def _select_cdb(self, person):
         try:
-            if hasattr(person, "cdb") and person.cdb is not None and "cdb" in self.combos:
+            if person.get("cdb") is not None and "cdb" in self.combos:
                 self._refresh_cdb_combo()
                 for idx, c in enumerate(self._cdb_options):
-                    if c.get("cdb_id") == person.cdb:
+                    if c.get("cdb_id") == person.get("cdb"):
                         self.combos["cdb"].current(idx)
                         break
         except Exception:
@@ -373,23 +371,10 @@ class ModifyPersonFrame(BaseFrame):
         try:
             self.controller.update_person(self.person_id, payload)
             # Persist memberships via backend services
-            try:
-                services = getattr(self.controller, "services", None)
-                if services is not None:
-                    people_svc = getattr(services, "people", None)
-                    if people_svc is not None and self._memberships:
-                        updater = getattr(people_svc, "update_person_memberships", None)
-                        if updater is not None:
-                            db_memberships = [
-                                {
-                                    "ministry_id": m.get("ministry_id"),
-                                    "area_id": m.get("area_id"),
-                                }
-                                for m in self._memberships
-                            ]
-                            updater(self.person_id, db_memberships)
-            except Exception:
-                pass
+            self.controller.update_memberships(
+                self.person_id,
+                self._memberships
+            )
             messagebox.showinfo("OK", "Persona actualizada")
             if self._on_data_changed:
                 self._on_data_changed()

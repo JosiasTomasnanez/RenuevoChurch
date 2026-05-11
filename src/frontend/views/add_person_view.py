@@ -23,6 +23,7 @@ class AddPersonFrame(BaseFrame):
         self._cdb_options = []
         
         self._build()
+        
 
     def _build(self):
         self.entries = {}
@@ -270,83 +271,86 @@ class AddPersonFrame(BaseFrame):
             self._refresh_membership_listbox()
 
     def _on_submit(self):
+
+        # -------- build payload --------
         payload = {k: (v.get() or None) for k, v in self.entries.items()}
-        
-        # Ministry assignments are now handled via memberships (person_ministry table)
+
+        # Required fields validation (avoid FastAPI 422)
+        if not payload.get("first_name") or not payload.get("last_name"):
+            messagebox.showerror("Error", "Nombre y Apellido son obligatorios")
+            return
+
+        # Ministry assignments are handled via memberships
         payload["ministry_area_id"] = None
         payload["ministry_id"] = None
 
-        # Consolidation
+        # -------- consolidation --------
         cons_idx = self.combos["consolidation_id"].current()
         if cons_idx >= 0 and hasattr(self, "_consolidation_options"):
             payload["consolidation_id"] = self._consolidation_options[cons_idx]["consolidation_id"]
         else:
             payload["consolidation_id"] = None
-        
-        # CDB
+
+        # -------- cdb --------
         cdb_idx = self.combos["cdb"].current()
-        if cdb_idx >= 0 and hasattr(self, "_cdb_options"):
+        if cdb_idx >= 0 and self._cdb_options:
             payload["cdb"] = self._cdb_options[cdb_idx]["cdb_id"]
         else:
             payload["cdb"] = None
-        
-        # Baptized (checkbox or default to False)
-        baptized_val = self.combos["baptized"].get()
-        payload["baptized"] = True if baptized_val == "Sí" else False
 
-        
-        # Convert numeric/boolean fields
+        # -------- baptized --------
+        payload["baptized"] = self.combos["baptized"].get() == "Sí"
+
+        # -------- numeric fields --------
         numeric_fields = ["dni", "house_number"]
+
         for field in numeric_fields:
-            if payload.get(field):
-                try:
-                    payload[field] = int(payload[field])
-                except Exception:
-                    messagebox.showerror("Error", f"{field} debe ser un número")
-                    return
+            value = payload.get(field)
+
+            if value is None or value == "":
+                payload[field] = None
+                continue
+
+            try:
+                payload[field] = int(value)
+            except Exception:
+                messagebox.showerror("Error", f"{field} debe ser un número")
+                return
 
         try:
-            person_id = self.controller.add_person(payload)
 
-            # Persist memberships via backend services if available
-            try:
-                services = getattr(self.controller, "services", None)
-                if services is not None:
-                    people_svc = getattr(services, "people", None)
-                    if people_svc is not None and self._memberships:
-                        people_svc.update_person_memberships = getattr(
-                            people_svc,
-                            "update_person_memberships",
-                            None,
-                        )
-                        updater = getattr(people_svc, "update_person_memberships", None)
-                        if updater is not None:
-                            # Adapter: keep only db-relevant keys
-                            db_memberships = [
-                                {
-                                    "ministry_id": m.get("ministry_id"),
-                                    "area_id": m.get("area_id"),
-                                }
-                                for m in self._memberships
-                            ]
-                            updater(person_id, db_memberships)
-            except Exception:
-                # Do not block person creation if membership save fails
-                pass
+            # -------- create person --------
+            person_id = self.controller.create_person(payload)
+
+            # -------- save memberships --------
+            db_memberships = [
+                {
+                    "ministry_id": m.get("ministry_id"),
+                    "area_id": m.get("area_id"),
+                }
+                for m in self._memberships
+            ]
+
+            if db_memberships:
+                self.controller.update_memberships(
+                    person_id,
+                    db_memberships
+                )
+
             messagebox.showinfo("OK", f"Persona creada con id={person_id}")
-            # Clear fields
+
+            # -------- clear form --------
             for e in self.entries.values():
                 e.delete(0, "end")
+
             for combo in self.combos.values():
                 combo.set("")
+
+            if "baptized" in self.combos:
+                self.combos["baptized"].set("No")
+
             self._memberships = []
             self._refresh_membership_listbox()
+
         except Exception as exc:
             messagebox.showerror("Error", str(exc))
-    
-    def refresh_dropdowns(self):
-        """Refresh all dropdown lists (called when config changes)."""
-        self._refresh_ministry_combo()
-        self._refresh_area_combo()
-        self._refresh_consolidation_combo()
-        self._refresh_cdb_combo()

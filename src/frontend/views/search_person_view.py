@@ -122,7 +122,7 @@ class SearchPersonFrame(BaseFrame):
     def _on_search(self):
         q = self.search_entry.get().strip()
         # First, search normally (by name)
-        results = self.controller.search(q)
+        results = self.controller.search_people(q)
         
         # Then apply active filters to the search results
         filtered_results = self._apply_filters(results)
@@ -146,53 +146,35 @@ class SearchPersonFrame(BaseFrame):
         self._update_details_panel()
 
     def _get_cell_value(self, row, col):
-        # row es un objeto Person
-        # Mostrar número de CDB en lugar de su id
+
+        if col == "cdb":
+            return self._get_person_cdb_number(row) or ""
+
         if col == "ministry":
             name = self._get_person_ministry_name(row)
             return "" if name is None else name
-        
-        if col == "cdb":
-            try:
-                cdb_id = getattr(row, "cdb", None)
-            except Exception:
-                cdb_id = None
-            if cdb_id is None:
-                return ""
-            try:
-                # Prefer injected config_service (frontend controller), fallback to controller.services
-                if hasattr(self, "config_service") and self.config_service is not None:
-                    cdb = self.config_service.get_cdb_by_id(cdb_id)
-                else:
-                    # try to use backend services if available
-                    svc = getattr(self.controller, "services", None)
-                    if svc is not None:
-                        cfg = getattr(svc, "config", None)
-                        if cfg is not None:
-                            cdb = cfg.get_cdb_by_id(cdb_id)
-                        else:
-                            cdb = None
-                    else:
-                        cdb = None
 
-                if isinstance(cdb, dict):
-                    return "" if cdb.get("number") is None else str(cdb.get("number"))
-                return str(cdb_id)
-            except Exception:
-                return str(cdb_id)
-        # columnas de la persona
+        if isinstance(row, dict):
+            if col in row:
+                val = row.get(col)
+                return "" if val is None else val
+
+            addr = row.get("address")
+            if isinstance(addr, dict) and col in addr:
+                val = addr.get(col)
+                return "" if val is None else val
+
         if hasattr(row, col):
             val = getattr(row, col)
             return "" if val is None else val
 
-        # columnas de dirección
+        # dirección dentro del objeto
         if hasattr(row, "address") and row.address:
             if hasattr(row.address, col):
                 val = getattr(row.address, col)
                 return "" if val is None else val
 
         return ""
-
 
 
 
@@ -404,34 +386,31 @@ class SearchPersonFrame(BaseFrame):
         if filter_name == "neighborhood":
             return [r for r in results if self._get_cell_value(r, "neighborhood") == value]
         if filter_name == "ministry":
-            # Filter by ministry using memberships (backend service) when possible.
             try:
-                svc = getattr(self.controller, "services", None)
-                cfg = self.config_service
-
-                # Resolve ministry_id from its name using config_service if available
                 ministry_id = None
-                if cfg is not None:
-                    ministries = cfg.get_all_ministries()
+
+                if self.config_service is not None:
+                    ministries = self.config_service.get_all_ministries()
+
                     for m in ministries:
                         if m.get("name") == value:
                             ministry_id = m.get("ministry_id")
                             break
-                if ministry_id is not None and svc is not None:
-                    people_svc = getattr(svc, "people", None)
-                    if people_svc is not None:
-                        matched_people = self.controller.get_people_by_ministry(ministry_id)
-                        allowed_ids = {self._get_person_id(p) for p in matched_people}
-                        return [
-                            r
-                            for r in results
-                            if self._get_person_id(r) in allowed_ids
-                        ]
-            except Exception:
-                # Fallback to previous behaviour using single ministry name
-                return [r for r in results if self._get_person_ministry_name(r) == value]
-            # If we couldn't resolve ministry via backend, fall back to name-based filter
-            return [r for r in results if self._get_person_ministry_name(r) == value]
+
+                if ministry_id is not None:
+                    matched_people = self.controller.get_people_by_ministry(ministry_id)
+
+                    allowed_ids = {self._get_person_id(p) for p in matched_people}
+
+                    return [
+                        r for r in results
+                        if self._get_person_id(r) in allowed_ids
+                    ]
+
+            except Exception:   
+                pass
+
+            return results
         if filter_name == "cdb":
             # compare by CDB number (string)
             return [r for r in results if self._get_person_cdb_number(r) == str(value)]
@@ -442,12 +421,9 @@ class SearchPersonFrame(BaseFrame):
         try:
             people = []
             try:
-                people = self.controller.services.people.get_all_people()
+                people = self.controller.search_people("")
             except Exception:
-                try:
-                    people = self.controller.search("")
-                except Exception:
-                    people = []
+                people = []
 
             if filter_name == "neighborhood":
                 vals = set()
@@ -587,17 +563,6 @@ class SearchPersonFrame(BaseFrame):
                     cdb = self.config_service.get_cdb_by_id(cdb_id)
                     if isinstance(cdb, dict) and cdb.get("number") is not None:
                         return str(cdb.get("number"))
-                # fallback to backend services if available
-                svc = getattr(self.controller, "services", None)
-                if svc is not None:
-                    cfg = getattr(svc, "config", None)
-                    if cfg is not None:
-                        try:
-                            cdb = cfg.get_cdb_by_id(cdb_id)
-                            if isinstance(cdb, dict) and cdb.get("number") is not None:
-                                return str(cdb.get("number"))
-                        except Exception:
-                            pass
             except Exception:
                 pass
 
@@ -686,15 +651,12 @@ class SearchPersonFrame(BaseFrame):
 
         # Fetch memberships via controller (delegates to backend service)
         memberships = []
+        
         try:
-            svc = getattr(self.controller, "services", None)
-            if svc is not None:
-                people_svc = getattr(svc, "people", None)
-                if people_svc is not None:
-                    memberships = self.controller.get_memberships(pid) or []
+            memberships = self.controller.get_memberships(pid) or []
         except Exception:
             memberships = []
-
+      
         if not memberships:
             # If there are no memberships stored yet, at least show primary ministry/area if present
             # by reusing the existing helpers.

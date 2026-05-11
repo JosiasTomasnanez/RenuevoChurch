@@ -187,7 +187,7 @@ class ConfigurationFrame(BaseFrame):
         if not hasattr(self, 'area_ministry_combo'):
             return
         ministries = self.config_service.get_all_ministries()
-        names = [m["name"] for m in ministries]
+        names = [m.get("name") for m in ministries if m.get("name")]
         self.area_ministry_combo["values"] = names
         self._ministries_for_combo = ministries
     
