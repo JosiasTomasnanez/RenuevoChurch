@@ -299,6 +299,17 @@ def _get_schema_statements() -> List[str]:
         )
         """,
 
+        # Many-to-many between persons and ministries (optionally via areas)
+        """
+        CREATE TABLE IF NOT EXISTS person_ministry (
+            person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
+            ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
+            area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
+            is_primary BOOLEAN DEFAULT 0,
+            PRIMARY KEY (person_id, ministry_id, area_id)
+        )
+        """,
+
         # Many-to-many between persons and occupations
         """
         CREATE TABLE IF NOT EXISTS person_occupation (
