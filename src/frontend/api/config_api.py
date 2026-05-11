@@ -101,3 +101,7 @@ class ConfigAPI:
     @staticmethod
     def delete_cdb(cdb_id):
         return ApiClient.delete(f"/config/cdb/{cdb_id}")
+    
+    @staticmethod
+    def get_cdb_by_id(cdb_id):
+        return ApiClient.get(f"/config/cdb/{cdb_id}")

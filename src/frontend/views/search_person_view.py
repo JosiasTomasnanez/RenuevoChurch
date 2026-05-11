@@ -147,55 +147,34 @@ class SearchPersonFrame(BaseFrame):
 
     def _get_cell_value(self, row, col):
 
-        # soporte para JSON (dict)
+        if col == "cdb":
+            return self._get_person_cdb_number(row) or ""
+
+        if col == "ministry":
+            name = self._get_person_ministry_name(row)
+            return "" if name is None else name
+
         if isinstance(row, dict):
             if col in row:
                 val = row.get(col)
                 return "" if val is None else val
 
-            # dirección dentro del JSON
             addr = row.get("address")
             if isinstance(addr, dict) and col in addr:
                 val = addr.get(col)
                 return "" if val is None else val
-        # row es un objeto Person
-        # Mostrar número de CDB en lugar de su id
-        if col == "ministry":
-            name = self._get_person_ministry_name(row)
-            return "" if name is None else name
-        
-        if col == "cdb":
-            try:
-                cdb_id = getattr(row, "cdb", None)
-            except Exception:
-                cdb_id = None
-            if cdb_id is None:
-                return ""
-            try:
-                # Prefer injected config_service (frontend controller), fallback to controller.services
-                if self.config_service is not None:
-                    cdb = self.config_service.get_cdb_by_id(cdb_id)
-                else:
-                    cdb = None
 
-                if isinstance(cdb, dict):
-                    return "" if cdb.get("number") is None else str(cdb.get("number"))
-                return str(cdb_id)
-            except Exception:
-                return str(cdb_id)
-        # columnas de la persona
         if hasattr(row, col):
             val = getattr(row, col)
             return "" if val is None else val
 
-        # columnas de dirección
+        # dirección dentro del objeto
         if hasattr(row, "address") and row.address:
             if hasattr(row.address, col):
                 val = getattr(row.address, col)
                 return "" if val is None else val
 
         return ""
-
 
 
 

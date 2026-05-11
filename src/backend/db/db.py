@@ -282,7 +282,9 @@ def _get_schema_statements() -> List[str]:
             marital_status TEXT,
             social_security TEXT,
             baptized BOOLEAN DEFAULT 0,
-            cdb INTEGER REFERENCES cdb(cdb_id) ON DELETE SET NULL
+            cdb INTEGER REFERENCES cdb(cdb_id) ON DELETE SET NULL,
+            gender TEXT,
+            membership_status TEXT
         )
         """,
 
