@@ -374,7 +374,7 @@ def _get_schema_statements(backend: str) -> List[str]:
             phone_number TEXT,
             marital_status TEXT,
             social_security TEXT,
-            baptized BOOLEAN DEFAULT 0,
+            baptized {boolean_default},
             cdb INTEGER REFERENCES cdb(cdb_id) ON DELETE SET NULL,
             gender TEXT,
             membership_status TEXT
