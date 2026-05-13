@@ -431,15 +431,6 @@ def delete_person(person_id: int) -> bool:
 
 
 def find_person_by_id(person_id: int) -> Optional[Dict]:
-    """Fetch a single person by id with all related address and ministry info.
-
-    Args:
-        person_id: The id of the person to fetch.
-
-    Returns:
-        A dictionary with the person data structure (nested person/address/area/ministry)
-        or None if person not found.
-    """
     if person_id is None:
         return None
 
@@ -453,9 +444,10 @@ def find_person_by_id(person_id: int) -> Optional[Dict]:
     LEFT JOIN address a ON p.address_id = a.address_id
     LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
     LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-    WHERE p.person_id = %s
-    """
+    WHERE p.person_id = %s""" # Eliminamos el salto de línea final antes de las comillas
 
+    row = db.query_one(sql, (person_id,))
+    # ... resto del código igual ...
     row = db.query_one(sql, (person_id,))
     if not row:
         return None
