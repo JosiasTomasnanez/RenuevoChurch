@@ -146,7 +146,9 @@ class SearchPersonFrame(BaseFrame):
         self._update_details_panel()
 
     def _get_cell_value(self, row, col):
-
+        if col == "consolidation_id":
+            return self._get_person_consolidation_level(row) or ""
+        
         if col == "cdb":
             return self._get_person_cdb_number(row) or ""
 
@@ -179,7 +181,13 @@ class SearchPersonFrame(BaseFrame):
 
 
     def _visible_columns(self):
-        return [c for c in self._all_cols if self._col_vars[c].get()]
+        cols = []
+        for c in self._all_cols:
+            if c == "ministry":
+                continue
+            if self._col_vars[c].get():
+                cols.append(c)
+        return cols
 
     def _on_columns_changed(self):
         self._create_tree()
@@ -568,6 +576,40 @@ class SearchPersonFrame(BaseFrame):
 
             # final fallback: return the id as string
             return str(cdb_id)
+        except Exception:
+            return None
+        
+
+
+    def _get_person_consolidation_level(self, p):
+        """Return consolidation level name instead of raw ID."""
+        try:
+            consolidation_id = None
+
+            if isinstance(p, dict):
+
+                person = p.get("person") if "person" in p else p
+
+                if isinstance(person, dict):
+                    consolidation_id = person.get("consolidation_id")
+
+            else:
+                consolidation_id = getattr(p, "consolidation_id", None)
+
+            if consolidation_id is None:
+                return None
+
+            if self.config_service is not None:
+
+                consolidations = self.config_service.get_all_consolidations()
+
+                for c in consolidations:
+
+                    if c.get("consolidation_id") == consolidation_id:
+                        return c.get("level")
+
+            return str(consolidation_id)
+
         except Exception:
             return None
 

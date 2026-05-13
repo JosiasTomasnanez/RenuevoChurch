@@ -44,7 +44,7 @@ def list_memberships_by_person(person_id: int) -> List[Dict]:
     FROM person_ministry pm
     LEFT JOIN ministry m ON pm.ministry_id = m.ministry_id
     LEFT JOIN ministry_area ma ON pm.area_id = ma.area_id
-    WHERE pm.person_id = ?
+    WHERE pm.person_id = %s
     ORDER BY pm.is_primary DESC, m.name, ma.area
     """
     rows = db.query_all(sql, (person_id,))
@@ -122,14 +122,14 @@ def set_memberships_for_person(person_id: int, memberships: Iterable[Dict]) -> N
 
     with db.get_connection() as conn:
         # Delete existing memberships
-        conn.execute("DELETE FROM person_ministry WHERE person_id = ?", (person_id,))
+        conn.execute("DELETE FROM person_ministry WHERE person_id = %s", (person_id,))
 
         if not normalized:
             return
 
         sql = """
         INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """
         params = [
             (person_id, m["ministry_id"], m.get("area_id"), m.get("is_primary", 0))
@@ -146,7 +146,7 @@ def find_person_ids_by_ministry(ministry_id: int) -> List[int]:
     sql = """
     SELECT DISTINCT person_id
     FROM person_ministry
-    WHERE ministry_id = ?
+    WHERE ministry_id = %s
     """
     rows = db.query_all(sql, (ministry_id,))
     return [int(r["person_id"]) for r in rows if r["person_id"] is not None]
