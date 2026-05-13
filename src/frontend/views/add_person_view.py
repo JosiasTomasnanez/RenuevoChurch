@@ -89,11 +89,11 @@ class AddPersonFrame(BaseFrame):
                 ent.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = ent
 
-        # Button to create person (stays en la parte izquierda)
+        # Button to create person 
         btn = tk.Button(left, text="Agregar persona", command=self._on_submit, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
         btn.grid(row=len(fields), column=0, columnspan=2, pady=(12, 0))
 
-        # Membership editor (ministries/areas) en la mitad derecha
+        # Membership editor (ministries/areas) 
         lbl = tk.Label(right, text="Asignaciones (ministerio / área)", bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
         lbl.grid(row=0, column=0, sticky="nw", padx=6, pady=(0, 3))
 

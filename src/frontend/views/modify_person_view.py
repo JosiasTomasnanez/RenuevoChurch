@@ -350,7 +350,12 @@ class ModifyPersonFrame(BaseFrame):
         for key, entry in self.entries.items():
             if key == "person_id":
                 continue
-            payload[key] = entry.get()
+            value = entry.get().strip()
+            if value == "":
+                value = None
+            if key in ("house_number", "dni") and value is not None:
+                value = int(value)
+            payload[key] = value
 
         if "consolidation_id" in self.combos:
             idx = self.combos["consolidation_id"].current()

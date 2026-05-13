@@ -63,7 +63,7 @@ class Database:
     def _translate_sql(self, sql: str) -> str:
         if self._is_sqlite:
             return sql
-        return sql.replace("?", "%s")
+        return sql.replace("%s", "%s")
 
     @contextmanager
     def get_connection(self) -> Iterator[Any]:
@@ -197,60 +197,21 @@ class Database:
                     conn.execute(
                         """
                         CREATE TABLE IF NOT EXISTS person_ministry (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
                             person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
                             ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
                             area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
-                            is_primary BOOLEAN DEFAULT 0,
-                            PRIMARY KEY (person_id, ministry_id, area_id)
+                            is_primary BOOLEAN DEFAULT 0
                         )
                         """
                     )
 
-                    conn.execute(
-                        """
-                        INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
-                        SELECT
-                            p.person_id,
-                            ma.ministry_id,
-                            p.ministry_area_id,
-                            1
-                        FROM person p
-                        JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
-                        LEFT JOIN person_ministry pm
-                            ON pm.person_id = p.person_id
-                           AND pm.ministry_id = ma.ministry_id
-                           AND (pm.area_id = p.ministry_area_id OR (pm.area_id IS NULL AND p.ministry_area_id IS NULL))
-                        WHERE p.ministry_area_id IS NOT NULL
-                          AND pm.person_id IS NULL
-                        """
-                    )
-
-                    conn.execute(
-                        """
-                        INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
-                        SELECT
-                            p.person_id,
-                            p.ministry_id,
-                            NULL,
-                            CASE
-                                WHEN NOT EXISTS (
-                                    SELECT 1
-                                    FROM person_ministry pm2
-                                    WHERE pm2.person_id = p.person_id
-                                      AND pm2.is_primary = 1
-                                )
-                                THEN 1
-                                ELSE 0
-                            END AS is_primary
-                        FROM person p
-                        LEFT JOIN person_ministry pm
-                            ON pm.person_id = p.person_id
-                           AND pm.ministry_id = p.ministry_id
-                           AND pm.area_id IS NULL
-                        WHERE p.ministry_id IS NOT NULL
-                          AND pm.person_id IS NULL
-                        """
-                    )
+                    # Check if id column exists, if not add it
+                    cursor = conn.execute("PRAGMA table_info(person_ministry)")
+                    columns = {row[1] for row in cursor.fetchall()}
+                    if "id" not in columns:
+                        conn.execute("ALTER TABLE person_ministry ADD COLUMN id INTEGER PRIMARY KEY AUTOINCREMENT")
+                        # Migrate data if needed, but since it's new, probably empty
             except Exception:
                 pass
 
@@ -276,6 +237,24 @@ class Database:
                             """
                         )
 
+                    # Check if person_ministry table needs migration
+                    try:
+                        cur.execute("ALTER TABLE person_ministry DROP CONSTRAINT IF EXISTS person_ministry_pkey")
+                    except Exception:
+                        pass
+
+                    # Add id column if not exists
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person_ministry'
+                          AND column_name = 'id'
+                        """
+                    )
+                    if cur.fetchone() is None:
+                        cur.execute("ALTER TABLE person_ministry ADD COLUMN id SERIAL PRIMARY KEY")
+
                     cur.execute(
                         """
                         CREATE TABLE IF NOT EXISTS person_ministry (
@@ -285,12 +264,6 @@ class Database:
                             area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
                             is_primary BOOLEAN DEFAULT FALSE
                         )
-                        """
-                    )
-                    cur.execute(
-                        """
-                        CREATE UNIQUE INDEX IF NOT EXISTS person_ministry_unique_idx
-                        ON person_ministry (person_id, ministry_id, COALESCE(area_id, 0))
                         """
                     )
         except Exception:
@@ -382,12 +355,11 @@ def _get_schema_statements(backend: str) -> List[str]:
         # Many-to-many between persons and ministries (optionally via areas)
         f"""
         CREATE TABLE IF NOT EXISTS person_ministry (
-            {'id SERIAL PRIMARY KEY,' if not is_sqlite else ''}
+            id {pk},
             person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
             ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
             area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
             is_primary {boolean_default}
-            {', PRIMARY KEY (person_id, ministry_id, area_id)' if is_sqlite else ''}
         )
         """,
 

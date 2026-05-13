@@ -5,8 +5,11 @@ models the many-to-many relationship between people and ministries (optionally
 via areas).
 """
 from typing import Dict, Iterable, List, Optional
+import logging
 
 from ..db import db as _db_module
+
+logger = logging.getLogger(__name__)
 
 try:
     db = _db_module.db
@@ -44,7 +47,7 @@ def list_memberships_by_person(person_id: int) -> List[Dict]:
     FROM person_ministry pm
     LEFT JOIN ministry m ON pm.ministry_id = m.ministry_id
     LEFT JOIN ministry_area ma ON pm.area_id = ma.area_id
-    WHERE pm.person_id = ?
+    WHERE pm.person_id = %s
     ORDER BY pm.is_primary DESC, m.name, ma.area
     """
     rows = db.query_all(sql, (person_id,))
@@ -91,6 +94,8 @@ def set_memberships_for_person(person_id: int, memberships: Iterable[Dict]) -> N
     if person_id is None:
         return
 
+    logger.info(f"Setting memberships for person {person_id}: {list(memberships)}")
+
     # Normalize input and enforce single primary flag
     normalized: List[Dict] = []
     any_primary = False
@@ -120,22 +125,24 @@ def set_memberships_for_person(person_id: int, memberships: Iterable[Dict]) -> N
     if normalized and not any_primary:
         normalized[0]["is_primary"] = 1
 
-    with db.get_connection() as conn:
-        # Delete existing memberships
-        conn.execute("DELETE FROM person_ministry WHERE person_id = ?", (person_id,))
+    logger.info(f"Normalized memberships: {normalized}")
 
-        if not normalized:
-            return
+    # Delete existing memberships
+    db.execute("DELETE FROM person_ministry WHERE person_id = %s", (person_id,))
 
-        sql = """
-        INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
-        VALUES (?, ?, ?, ?)
-        """
-        params = [
-            (person_id, m["ministry_id"], m.get("area_id"), m.get("is_primary", 0))
-            for m in normalized
-        ]
-        conn.executemany(sql, params)
+    if not normalized:
+        return
+
+    sql = """
+    INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
+    VALUES (%s, %s, %s, %s)
+    """
+    params = [
+        (person_id, m["ministry_id"], m.get("area_id"), m.get("is_primary", 0))
+        for m in normalized
+    ]
+    logger.info(f"Inserting params: {params}")
+    db.executemany(sql, params)
 
 
 def find_person_ids_by_ministry(ministry_id: int) -> List[int]:
@@ -146,7 +153,7 @@ def find_person_ids_by_ministry(ministry_id: int) -> List[int]:
     sql = """
     SELECT DISTINCT person_id
     FROM person_ministry
-    WHERE ministry_id = ?
+    WHERE ministry_id = %s
     """
     rows = db.query_all(sql, (ministry_id,))
     return [int(r["person_id"]) for r in rows if r["person_id"] is not None]
