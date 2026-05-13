@@ -447,8 +447,6 @@ def find_person_by_id(person_id: int) -> Optional[Dict]:
     WHERE p.person_id = %s""" # Eliminamos el salto de línea final antes de las comillas
 
     row = db.query_one(sql, (person_id,))
-    # ... resto del código igual ...
-    row = db.query_one(sql, (person_id,))
     if not row:
         return None
 
