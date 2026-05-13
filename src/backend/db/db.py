@@ -129,10 +129,10 @@ class Database:
             if self._is_sqlite:
                 cur = conn.execute(sql, tuple(params) if params else ())
                 return cur.fetchall()
-
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(sql, tuple(params) if params else ())
-                return cur.fetchall()
+            else:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute(sql, tuple(params) if params else ())
+                    return cur.fetchall()
 
     def query_one(self, sql: str, params: Optional[Iterable[Any]] = None) -> Optional[Any]:
         """Return a single row or None."""
@@ -141,10 +141,10 @@ class Database:
             if self._is_sqlite:
                 cur = conn.execute(sql, tuple(params) if params else ())
                 return cur.fetchone()
-
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(sql, tuple(params) if params else ())
-                return cur.fetchone()
+            else:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute(sql, tuple(params) if params else ())
+                    return cur.fetchone()
 
     def insert(self, sql: str, params: Optional[Iterable[Any]] = None) -> int:
         """Run an INSERT and return the new row id."""
@@ -403,7 +403,9 @@ def _get_schema_statements(backend: str) -> List[str]:
 
 
 # Convenience top-level instance for simple scripts importing this module
-db = Database()
+# Read DATABASE_URL from environment (set in Render/production)
+database_url = os.environ.get("DATABASE_URL")
+db = Database(dsn=database_url) if database_url else Database()
 
 
 if __name__ == "__main__":
