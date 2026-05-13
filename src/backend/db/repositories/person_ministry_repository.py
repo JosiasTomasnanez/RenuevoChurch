@@ -127,23 +127,22 @@ def set_memberships_for_person(person_id: int, memberships: Iterable[Dict]) -> N
 
     logger.info(f"Normalized memberships: {normalized}")
 
-    with db.get_connection() as conn:
-        # Delete existing memberships
-        conn.execute("DELETE FROM person_ministry WHERE person_id = %s", (person_id,))
+    # Delete existing memberships
+    db.execute("DELETE FROM person_ministry WHERE person_id = %s", (person_id,))
 
-        if not normalized:
-            return
+    if not normalized:
+        return
 
-        sql = """
-        INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
-        VALUES (%s, %s, %s, %s)
-        """
-        params = [
-            (person_id, m["ministry_id"], m.get("area_id"), m.get("is_primary", 0))
-            for m in normalized
-        ]
-        logger.info(f"Inserting params: {params}")
-        conn.executemany(sql, params)
+    sql = """
+    INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
+    VALUES (%s, %s, %s, %s)
+    """
+    params = [
+        (person_id, m["ministry_id"], m.get("area_id"), m.get("is_primary", 0))
+        for m in normalized
+    ]
+    logger.info(f"Inserting params: {params}")
+    db.executemany(sql, params)
 
 
 def find_person_ids_by_ministry(ministry_id: int) -> List[int]:
