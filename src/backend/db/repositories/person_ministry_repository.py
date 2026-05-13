@@ -5,8 +5,11 @@ models the many-to-many relationship between people and ministries (optionally
 via areas).
 """
 from typing import Dict, Iterable, List, Optional
+import logging
 
 from ..db import db as _db_module
+
+logger = logging.getLogger(__name__)
 
 try:
     db = _db_module.db
@@ -91,6 +94,8 @@ def set_memberships_for_person(person_id: int, memberships: Iterable[Dict]) -> N
     if person_id is None:
         return
 
+    logger.info(f"Setting memberships for person {person_id}: {list(memberships)}")
+
     # Normalize input and enforce single primary flag
     normalized: List[Dict] = []
     any_primary = False
@@ -120,6 +125,8 @@ def set_memberships_for_person(person_id: int, memberships: Iterable[Dict]) -> N
     if normalized and not any_primary:
         normalized[0]["is_primary"] = 1
 
+    logger.info(f"Normalized memberships: {normalized}")
+
     with db.get_connection() as conn:
         # Delete existing memberships
         conn.execute("DELETE FROM person_ministry WHERE person_id = %s", (person_id,))
@@ -135,6 +142,7 @@ def set_memberships_for_person(person_id: int, memberships: Iterable[Dict]) -> N
             (person_id, m["ministry_id"], m.get("area_id"), m.get("is_primary", 0))
             for m in normalized
         ]
+        logger.info(f"Inserting params: {params}")
         conn.executemany(sql, params)
 
 

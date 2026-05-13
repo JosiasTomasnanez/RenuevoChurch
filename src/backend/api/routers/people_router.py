@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Body, HTTPException
 from typing import Any, List, Optional
+import logging
 
 from src.backend.services import people as service
 from src.backend.api.schemas.person_schema import Membership, PersonCreate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/people",
@@ -116,6 +119,7 @@ def update_memberships(
     person_id: int,
     payload: Any = Body(default_factory=list),
 ):
+    logger.info(f"Updating memberships for person {person_id} with payload: {payload}")
     try:
         # Be liberal in what we accept:
         # - JSON array: [{"ministry_id": 1, "area_id": null}, ...]
@@ -130,10 +134,12 @@ def update_memberships(
             raise HTTPException(status_code=422, detail="memberships must be a JSON array")
 
         memberships = [Membership.model_validate(m) for m in memberships_raw]
+        logger.info(f"Validated memberships: {memberships}")
         service.update_person_memberships(
             person_id,
             [m.model_dump() for m in (memberships or [])],
         )
         return {"status": "updated"}
     except Exception as e:
+        logger.error(f"Error updating memberships for person {person_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

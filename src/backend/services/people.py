@@ -4,6 +4,7 @@ This small service wraps the repository helpers and maps database rows into
 typed `Person` objects from `src.backend.models.person`.
 """
 from typing import List, Optional
+import logging
 
 from ..db.repositories import (
 	find_people_by_neighborhood,
@@ -17,6 +18,8 @@ from ..db.repositories import (
 )
 from ..models.person import Person
 from ..db.repositories import get_area_and_ministry
+
+logger = logging.getLogger(__name__)
 
 
 def get_people_by_neighborhood(neighborhood: str, partial: bool = False) -> List[Person]:
@@ -200,6 +203,7 @@ def update_person_memberships(person_id: int, memberships: list) -> None:
 	optionally `area_id`. The `is_primary` flag is optional and not
 	required by the UI (all can be treated as no principal).
 	"""
+	logger.info(f"Updating memberships for person {person_id}: {memberships}")
 	set_memberships_for_person(person_id, memberships)
 
 
