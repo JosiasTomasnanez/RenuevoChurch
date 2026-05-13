@@ -122,7 +122,6 @@ class ConfigurationFrame(BaseFrame):
             return
 
         try:
-        
             self.config_service.create_area(m_id, area_name)
             self.area_helper.entry_widget.delete(0, "end")
             self.area_helper.refresh_list()

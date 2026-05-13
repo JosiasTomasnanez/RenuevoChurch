@@ -139,17 +139,16 @@ def _build_main_window():
 
             self.show("add")
 
-        def _open_modify(self, person_id: int, show: bool = False):
-
+        def _open_modify(self, person_id: int, show: bool = True): # Cambiado a True
             mod = self.frames.get("modify")
-
             if not mod:
                 return
 
             try:
+                # Esto llama al método que ya arreglamos en ModifyPersonFrame
                 mod.load_person_by_id(person_id)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error al cargar en modify: {e}")
 
             if show:
                 self.show("modify")

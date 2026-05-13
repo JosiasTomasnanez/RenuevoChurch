@@ -1,518 +1,184 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from src.frontend.views._base import BaseFrame
-
+from src.frontend.helpers.config_dropdown_helper import ConfigDropdownHelper
+from src.frontend.helpers.membership_editor_helper import MembershipEditorHelper
 
 class ModifyPersonFrame(BaseFrame):
     # Pastel color scheme
-    BG_PRIMARY = "#F0E6F6"      # Light purple
-    BG_INPUT = "#FFFBF5"        # Warm white
-    BTN_COLOR = "#7A4A97"       # Strong dark purple
-    TEXT_DARK = "#5A5A5A"       # Dark gray for text
+    BG_PRIMARY = "#F0E6F6"
+    BG_INPUT = "#FFFBF5"
+    BTN_COLOR = "#7A4A97"
+    TEXT_DARK = "#5A5A5A"
     
     def __init__(self, parent, controller=None, config_service=None, on_data_changed=None):
-
         super().__init__(parent)
         self.config(bg=self.BG_PRIMARY)
-
         self.controller = controller
         self.config_service = config_service
         self._on_data_changed = on_data_changed
-
 
         self.entries = {}
         self.combos = {}
         self.person_id = None
 
-        self._ministry_options = []
-        self._area_options = []
-        self._consolidation_options = []
-        self._cdb_options = []
-
+        # Instanciamos el Helper de Dropdowns (CDB, Consolidación)
+        self.drop_helper = ConfigDropdownHelper(self.config_service)
+        
         self._build()
-
-    # ---------------- UI ----------------
 
     def _build(self):
         main = tk.Frame(self, bg=self.BG_PRIMARY)
         main.pack(padx=10, pady=10, fill="both", expand=True)
 
-        # columna izquierda (datos)
         left = tk.Frame(main, bg=self.BG_PRIMARY)
         left.pack(side="left", fill="both", expand=True)
 
-        # columna derecha (ministerios)
         right = tk.Frame(main, bg=self.BG_PRIMARY)
         right.pack(side="right", fill="y", padx=(20, 0))
-        frm = left
 
         fields = [
-            ("person_id", "ID Persona"),
-            ("first_name", "Nombre"),
-            ("last_name", "Apellido"),
-            ("email", "Correo"),
+            ("person_id", "ID Persona"), ("first_name", "Nombre"),
+            ("last_name", "Apellido"), ("email", "Correo"),
             ("birthdate", "Fecha de nacimiento (YYYY-MM-DD)"),
-            ("dni", "DNI"),
-            ("phone_number", "Teléfono"),
-            ("marital_status", "Estado civil"),
-            ("social_security", "Número de seguro social"),
-            ("street", "Calle"),
-            ("neighborhood", "Barrio"),
+            ("dni", "DNI"), ("phone_number", "Teléfono"),
+            ("marital_status", "Estado civil"), ("social_security", "Seguro Social"),
+            ("street", "Calle"), ("neighborhood", "Barrio"),
             ("house_number", "Número de casa"),
-            # Ministry/area assignments handled by dedicated editor below
             ("consolidation_id", "Nivel de consolidación"),
-            ("cdb", "¿CDB?"),
-            ("baptized", "¿Bautizado?"),
+            ("cdb", "¿CDB?"), ("baptized", "¿Bautizado?"),
         ]
 
         for i, (key, label) in enumerate(fields):
-            lbl = tk.Label(frm, text=label, bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
+            lbl = tk.Label(left, text=label, bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
             lbl.grid(row=i, column=0, sticky="w", padx=6, pady=3)
 
             if key == "person_id":
-                e = tk.Entry(frm, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
+                e = tk.Entry(left, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
                 e.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = e
-
-                load_btn = tk.Button(frm, text="Cargar", command=self._on_load, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
-                load_btn.grid(row=i, column=2, padx=4)
-
-            elif key == "consolidation_id":
-                combo = ttk.Combobox(frm, width=37, state="readonly")
+                tk.Button(left, text="Cargar", command=self._on_load, bg=self.BTN_COLOR, fg="white").grid(row=i, column=2, padx=4)
+            elif key in ["consolidation_id", "cdb", "baptized"]:
+                combo = ttk.Combobox(left, width=37, state="readonly")
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
-                self._refresh_consolidation_combo()
-
-            elif key == "cdb":
-                combo = ttk.Combobox(frm, width=37, state="readonly")
-                combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
-                self.combos[key] = combo
-                self._refresh_cdb_combo()
-
-
-            elif key == "baptized":
-                combo = ttk.Combobox(frm, width=37, state="readonly")
-                combo["values"] = ["Sí", "No"]
-                combo.current(1)
-                combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
-                self.combos[key] = combo
-
             else:
-                e = tk.Entry(frm, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
+                e = tk.Entry(left, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
                 e.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = e
 
-       # Membership editor (igual que AddPersonFrame)
-        lbl = tk.Label(right, text="Asignaciones (ministerio / área)", bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
-        lbl.grid(row=0, column=0, sticky="nw", padx=6, pady=(0, 3))
+        # Llenar combos iniciales
+        self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
+        self.drop_helper.fill_cdbs(self.combos["cdb"])
+        self.combos["baptized"]["values"] = ["Sí", "No"]
 
-        mem_frame = tk.Frame(right, bg=self.BG_PRIMARY)
-        mem_frame.grid(row=1, column=0, sticky="nwe", padx=6, pady=(0, 3))
-
-        self._membership_frame = mem_frame
-
-        self._mem_ministry_combo = ttk.Combobox(mem_frame, width=20, state="readonly")
-        self._mem_area_combo = ttk.Combobox(mem_frame, width=20, state="readonly")
-
-        self._mem_ministry_combo.grid(row=0, column=0, padx=(0, 4), pady=2, sticky="w")
-        self._mem_area_combo.grid(row=0, column=1, padx=(0, 4), pady=2, sticky="w")
-
-        self._mem_ministry_combo.bind("<<ComboboxSelected>>", self._on_ministry_selected)
-
-        tk.Button(
-            mem_frame,
-            text="Agregar asignación",
-            command=self._on_add_membership,
-            bg=self.BTN_COLOR,
-            fg="white",
-            relief="raised",
-            bd=1,
-            activebackground="#5A2A77",
-        ).grid(row=0, column=3, padx=(0, 4), pady=2, sticky="w")
-
-        self._membership_list = tk.Listbox(
-            mem_frame,
-            height=4,
-            bg=self.BG_INPUT,
-            fg=self.TEXT_DARK,
-            relief="solid",
-            bd=1,
+        # --- APLICACIÓN DEL MEMBERSHIP HELPER (Derecha) ---
+        self.membership_editor = MembershipEditorHelper(
+            parent_frame=right,
+            config_service=self.config_service,
+            bg_primary=self.BG_PRIMARY,
+            bg_input=self.BG_INPUT,
+            btn_color=self.BTN_COLOR,
+            text_dark=self.TEXT_DARK
         )
-        self._membership_list.grid(row=1, column=0, columnspan=3, sticky="we", pady=(4, 0))
 
-        tk.Button(
-            mem_frame,
-            text="Quitar seleccionada",
-            command=self._on_remove_membership,
-            bg="#A83030",
-            fg="white",
-            relief="raised",
-            bd=1,
-            activebackground="#8A1010",
-        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        # Botones Acción
+        btn_f = tk.Frame(left, bg=self.BG_PRIMARY)
+        btn_f.grid(row=len(fields)+1, column=0, columnspan=2, pady=20)
+        
+        tk.Button(btn_f, text="Guardar cambios", command=self._on_save, bg=self.BTN_COLOR, fg="white", width=18).pack(side="left", padx=5)
+        tk.Button(btn_f, text="Eliminar persona", command=self._on_delete, bg="#A83030", fg="white", width=18).pack(side="left", padx=5)
 
-        mem_frame.columnconfigure(0, weight=1)
-        # Internal memberships list
-        self._memberships = []
-
-        # Initialize combos for membership editor
-        self._refresh_ministry_combo()
-
-        save_btn = tk.Button(frm, text="Guardar cambios", command=self._on_save, bg=self.BTN_COLOR, fg="white", relief="raised", bd=1, activebackground="#5A2A77")
-        save_btn.grid(row=len(fields) + 1, column=0, pady=10, padx=5, sticky="e")
-
-        delete_btn = tk.Button(frm, text="Eliminar persona", command=self._on_delete, bg="#A83030", fg="white", relief="raised", bd=1, activebackground="#8A1010")
-        delete_btn.grid(row=len(fields) + 1, column=1, pady=10, padx=5, sticky="w")
-
-    # ---------------- Config helpers ----------------
-
-    def _refresh_ministry_combo(self):
-        if not self.config_service:
-            return
-        try:
-            ministries = self.config_service.get_all_ministries()
-            self._ministry_options = ministries
-            names = [m["name"] for m in ministries]
-            self._mem_ministry_combo["values"] = names
-        except Exception:
-            pass
-
-    def _on_ministry_selected(self, event=None):
-        idx = self._mem_ministry_combo.current()
-        if idx < 0:
-            return
-
-        ministry_id = self._ministry_options[idx]["ministry_id"]
-
-        try:
-            areas = self.config_service.get_areas_by_ministry(ministry_id)
-            self._area_options = areas
-            labels = [a["area"] for a in areas]
-            self._mem_area_combo["values"] = labels
-            self._mem_area_combo.set("")
-        except Exception:
-            pass
-
-    # ---------------- Helper loaders (refactor _on_load) ----------------
-
-    def _fetch_person(self, pid):
-        try:
-            return self.controller.get_person(int(pid))
-        except Exception:
-            return None
-
-    def _populate_basic_fields(self, person):
-        # set id and simple fields + address nested fields
-        self.person_id =  person["person_id"]
-        self.entries["person_id"].delete(0, tk.END)
-        self.entries["person_id"].insert(0, str(person["person_id"]))
-
-        for key, entry in self.entries.items():
-            if key == "person_id":
-                continue
-
-            if key in person and person[key] is not None:
-                entry.insert(0, str(person[key]))
-            elif key in ("street", "neighborhood", "house_number"):
-                addr = person.get("address")
-                if addr and key in addr and addr[key] is not None:
-                    entry.insert(0, str(addr[key]))
-
-    def _set_baptized(self, person):
-        try:
-            if person.get("baptized"):
-                self.combos["baptized"].set("Sí")
-            else:
-                self.combos["baptized"].set("No")
-        except Exception:
-            pass
-
-    def _load_ministry_and_area(self, person):
-        # Load memberships for this person and populate the editor.
-        self._memberships = []
-        self._membership_list.delete(0, tk.END)
-
-        try:
-            raw_memberships = self.controller.get_memberships(self.person_id) or []
-        except Exception:
-            raw_memberships = []
-
-        if not raw_memberships:
-            return
-
-        # Ensure ministry list is available for name resolution
-        try:
-            if not self._ministry_options:
-                self._refresh_ministry_combo()
-        except Exception:
-            pass
-
-        # Preload areas per ministry to speed up label building
-        areas_cache = {}
-        if self.config_service:
-            try:
-                for m in self._ministry_options:
-                    mid = m.get("ministry_id")
-                    if mid is not None and mid not in areas_cache:
-                        areas_cache[mid] = self.config_service.get_areas_by_ministry(mid)
-            except Exception:
-                areas_cache = {}
-
-        for rm in raw_memberships:
-            ministry = rm.get("ministry") or {}
-            area = rm.get("area") or {}
-            ministry_id = ministry.get("ministry_id") or rm.get("ministry_id")
-            area_id = area.get("area_id") or rm.get("area_id")
-
-            ministry_name = ministry.get("name") or ""
-            if not ministry_name and ministry_id is not None:
-                for m in self._ministry_options:
-                    if m.get("ministry_id") == ministry_id:
-                        ministry_name = m.get("name") or ""
-                        break
-
-            area_name = area.get("area") or ""
-            if not area_name and ministry_id is not None and area_id is not None:
-                for a in areas_cache.get(ministry_id, []):
-                    if a.get("area_id") == area_id:
-                        area_name = a.get("area") or ""
-                        break
-
-            mem = {
-                "ministry_id": ministry_id,
-                "area_id": area_id,
-                "ministry_name": ministry_name,
-                "area_name": area_name,
-            }
-            self._memberships.append(mem)
-
-        self._refresh_membership_listbox()
-
-    def _select_consolidation(self, person):
-        try:
-            if person.get("consolidation_id") is not None and "consolidation_id" in self.combos:
-                self._refresh_consolidation_combo()
-                for idx, c in enumerate(self._consolidation_options):
-                    if c.get("consolidation_id") == person.get("consolidation_id"):
-                        self.combos["consolidation_id"].current(idx)
-                        break
-        except Exception:
-            pass
-
-    def _select_cdb(self, person):
-        try:
-            if person.get("cdb") is not None and "cdb" in self.combos:
-                self._refresh_cdb_combo()
-                for idx, c in enumerate(self._cdb_options):
-                    if c.get("cdb_id") == person.get("cdb"):
-                        self.combos["cdb"].current(idx)
-                        break
-        except Exception:
-            pass
-
-    # ---------------- Load person ----------------
+    # ---------------- Lógica de Carga ----------------
 
     def _on_load(self):
         pid = self.entries["person_id"].get().strip()
-
-        if not pid:
-            messagebox.showerror("Error", "Ingresá un ID")
-            return
-
-        person = self._fetch_person(pid)
-        if not person:
-            messagebox.showerror("Error", "Persona no encontrada")
-            return
-
-        # limpiar formulario antes de cargar nuevos datos
-        self._clear_form()
-
-        # populate fields and combos using helpers
+        if not pid: return
+        
         try:
-            self._populate_basic_fields(person)
-            self._set_baptized(person)
-            self._load_ministry_and_area(person)
-            self._select_consolidation(person)
-            self._select_cdb(person)
+            person = self.controller.get_person(int(pid))
+            if not person:
+                messagebox.showerror("Error", "No existe")
+                return
+            
+            self._clear_form()
+            self.person_id = person["person_id"]
+            
+            # 1. Cargar campos simples
+            for key in self.entries:
+                if key != "person_id":
+                    val = person.get(key)
+                    if val is not None: self.entries[key].insert(0, str(val))
+            
+            # 2. Cargar dirección (nested) como tenías antes
+            addr = person.get("address") or {}
+            for key in ["street", "neighborhood", "house_number"]:
+                val = addr.get(key)
+                if val is not None: 
+                    self.entries[key].delete(0, tk.END) # Limpiar por si el bucle anterior puso algo
+                    self.entries[key].insert(0, str(val))
+
+            # 3. Cargar Combos
+            cons_obj = self.drop_helper.find_consolidation_by_id(person.get("consolidation_id"))
+            if cons_obj: self.combos["consolidation_id"].set(cons_obj["level"])
+
+            cdb_obj = self.drop_helper.find_cdb_by_id(person.get("cdb"))
+            if cdb_obj: self.combos["cdb"].set(str(cdb_obj["number"]))
+
+            self.combos["baptized"].set("Sí" if person.get("baptized") else "No")
+
+            # 4. CARGAR MEMBRESÍAS USANDO EL HELPER
+            mems = self.controller.get_memberships(self.person_id) or []
+            self.membership_editor.set_memberships(mems)
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-
-    # ---------------- Save ----------------
+    # ---------------- Guardar y Otros ----------------
 
     def _on_save(self):
-        if not self.person_id:
-            messagebox.showerror("Error", "Primero cargá una persona")
-            return
-
-        payload = {}
-
-        for key, entry in self.entries.items():
-            if key == "person_id":
-                continue
-            value = entry.get().strip()
-            if value == "":
-                value = None
-            if key in ("house_number", "dni") and value is not None:
-                value = int(value)
-            payload[key] = value
-
-        if "consolidation_id" in self.combos:
-            idx = self.combos["consolidation_id"].current()
-            if idx >= 0:
-                payload["consolidation_id"] = self._consolidation_options[idx]["consolidation_id"]
-
-        # Ministry assignments now live in person_ministry; keep legacy fields empty
-        payload["ministry_area_id"] = None
-        payload["ministry_id"] = None
-
-        cdb_idx = self.combos["cdb"].current()
-        if cdb_idx >= 0:
-            # backend expects `cdb` field (stores cdb_id in person.cdb)
-            payload["cdb"] = self._cdb_options[cdb_idx]["cdb_id"]
-
+        if not self.person_id: return
+        
+        payload = {k: (v.get() or None) for k, v in self.entries.items() if k != "person_id"}
+        
+        payload["consolidation_id"] = self.drop_helper.get_consolidation_id(self.combos["consolidation_id"].get())
+        payload["cdb"] = self.drop_helper.get_cdb_id(self.combos["cdb"].get())
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
 
         try:
             self.controller.update_person(self.person_id, payload)
-            # Persist memberships via backend services
-            self.controller.update_memberships(
-                self.person_id,
-                self._memberships
-            )
-            messagebox.showinfo("OK", "Persona actualizada")
-            if self._on_data_changed:
-                self._on_data_changed()
-
+            
+            # ACTUALIZAR MEMBRESÍAS DESDE EL HELPER
+            current_mems = self.membership_editor.memberships
+            db_mems = [{"ministry_id": m["ministry_id"], "area_id": m["area_id"]} for m in current_mems]
+            self.controller.update_memberships(self.person_id, db_mems)
+            
+            messagebox.showinfo("OK", "Actualizado correctamente")
+            if self._on_data_changed: self._on_data_changed()
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
     def _on_delete(self):
-        if not self.person_id:
-            messagebox.showerror("Error", "Primero cargá una persona")
-            return
-
-        if not messagebox.askyesno("Confirmar", "¿Eliminar esta persona?"):
-            return
-
+        if not self.person_id or not messagebox.askyesno("Borrar", "¿Seguro?"): return
         try:
             self.controller.delete_person(self.person_id)
-            messagebox.showinfo("OK", "Persona eliminada")
-            if self._on_data_changed:
-                self._on_data_changed()
-
-
-        # limpiar formulario
-            for entry in self.entries.values():
-                entry.delete(0, tk.END)
-
-            for combo in self.combos.values():
-                combo.set("")
-
-            self.person_id = None
-
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+            self._clear_form()
+            if self._on_data_changed: self._on_data_changed()
+        except Exception as e: messagebox.showerror("Error", str(e))
 
     def _clear_form(self):
-        for entry in self.entries.values():
-            entry.delete(0, tk.END)
-
-        for combo in self.combos.values():
-            combo.set("")
-
-        # valor por defecto para bautizado
-        if "baptized" in self.combos:
-            self.combos["baptized"].set("No")
-
-        # clear memberships list
-        self._memberships = []
-        self._membership_list.delete(0, tk.END)
-
-    def load_person_by_id(self, person_id: int):
-        """Public method used by Search frame to load a person."""
-        self.entries["person_id"].delete(0, tk.END)
-        self.entries["person_id"].insert(0, str(person_id))
-        self._on_load()
+        for e in self.entries.values(): e.delete(0, tk.END)
+        for c in self.combos.values(): c.set("")
+        self.membership_editor.clear() # Limpiamos el helper
+        self.person_id = None
 
     def refresh_dropdowns(self):
-        self._refresh_ministry_combo()
-        self._refresh_consolidation_combo()
-        self._refresh_cdb_combo()
+        self.drop_helper.refresh_all()
+        self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
+        self.drop_helper.fill_cdbs(self.combos["cdb"])
+        self.membership_editor.refresh_ministry_combo() # Refrescar ministerios en el helper
 
-        self._mem_area_combo["values"] = []
-        self._mem_area_combo.set("")
-
-    def _on_add_membership(self):
-        """Add a membership to the internal list and listbox."""
-        if not self._ministry_options:
-            self._refresh_ministry_combo()
-
-        min_idx = self._mem_ministry_combo.current()
-        if min_idx < 0 or min_idx >= len(self._ministry_options):
-            messagebox.showerror("Error", "Seleccione un ministerio")
-            return
-
-        ministry = self._ministry_options[min_idx]
-        ministry_id = ministry.get("ministry_id")
-        ministry_name = ministry.get("name") or ""
-
-        area_id = None
-        area_name = ""
-        area_idx = self._mem_area_combo.current()
-        if self._area_options and 0 <= area_idx < len(self._area_options):
-            area = self._area_options[area_idx]
-            area_id = area.get("area_id")
-            area_name = area.get("area") or ""
-
-        mem = {
-            "ministry_id": ministry_id,
-            "area_id": area_id,
-            "ministry_name": ministry_name,
-            "area_name": area_name,
-        }
-        self._memberships.append(mem)
-
-        self._refresh_membership_listbox()
-
-    def _refresh_membership_listbox(self):
-        if hasattr(self, "_membership_list"):
-            self._membership_list.delete(0, tk.END)
-        for m in self._memberships:
-            label = m.get("ministry_name") or ""
-            if m.get("area_name"):
-                label = f"{label} / {m.get('area_name')}"
-            self._membership_list.insert(tk.END, label)
-
-    def _on_remove_membership(self):
-        sel = self._membership_list.curselection()
-        if not sel:
-            return
-        idx = sel[0]
-        if 0 <= idx < len(self._memberships):
-            del self._memberships[idx]
-            self._refresh_membership_listbox()
-
-
-    def _refresh_consolidation_combo(self):
-        if not self.config_service:
-            return
-        try:
-            consolidations = self.config_service.get_all_consolidations()
-            self._consolidation_options = consolidations
-            labels = [c["level"] for c in consolidations]
-            self.combos["consolidation_id"]["values"] = labels
-        except Exception:
-            pass
-
-
-    def _refresh_cdb_combo(self):
-        if not self.config_service:
-            return
-        try:
-            cdbs = self.config_service.get_all_cdb_options()
-            self._cdb_options = cdbs
-            labels = [str(c["number"]) for c in cdbs]
-            self.combos["cdb"]["values"] = labels
-        except Exception:
-            pass
+    def load_person_by_id(self, person_id: int):
+        self._clear_form()
+        self.entries["person_id"].insert(0, str(person_id))
+        self._on_load()
