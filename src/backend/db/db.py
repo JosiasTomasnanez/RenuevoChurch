@@ -237,6 +237,24 @@ class Database:
                             """
                         )
 
+                    # Check if person_ministry table needs migration
+                    try:
+                        cur.execute("ALTER TABLE person_ministry DROP CONSTRAINT IF EXISTS person_ministry_pkey")
+                    except Exception:
+                        pass
+
+                    # Add id column if not exists
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person_ministry'
+                          AND column_name = 'id'
+                        """
+                    )
+                    if cur.fetchone() is None:
+                        cur.execute("ALTER TABLE person_ministry ADD COLUMN id SERIAL PRIMARY KEY")
+
                     cur.execute(
                         """
                         CREATE TABLE IF NOT EXISTS person_ministry (
