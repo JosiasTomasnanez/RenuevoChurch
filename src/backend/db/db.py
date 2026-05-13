@@ -154,16 +154,14 @@ class Database:
                 cur = conn.execute(sql, tuple(params) if params else ())
                 return cur.lastrowid
 
+            upper_sql = sql.strip().upper()
+            if upper_sql.startswith("INSERT") and "RETURNING" not in upper_sql:
+                sql = sql.rstrip().rstrip(";") + " RETURNING *"
+
             with conn.cursor() as cur:
                 cur.execute(sql, tuple(params) if params else ())
-                if cur.description is not None:
-                    row = cur.fetchone()
-                    return row[0] if row else -1
-
-                with conn.cursor() as seq_cur:
-                    seq_cur.execute("SELECT LASTVAL()")
-                    result = seq_cur.fetchone()
-                    return result[0] if result else -1
+                row = cur.fetchone()
+                return row[0] if row else -1
 
     def initialize_schema(self) -> None:
         """Create the database schema if it does not exist."""
@@ -384,12 +382,11 @@ def _get_schema_statements(backend: str) -> List[str]:
         # Many-to-many between persons and ministries (optionally via areas)
         f"""
         CREATE TABLE IF NOT EXISTS person_ministry (
-            {'id SERIAL PRIMARY KEY,' if not is_sqlite else ''}
             person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
             ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
             area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
-            is_primary {boolean_default}
-            {'' if is_sqlite else ''}
+            is_primary {boolean_default},
+            PRIMARY KEY (person_id, ministry_id, area_id)
         )
         """,
 
