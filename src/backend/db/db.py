@@ -382,11 +382,12 @@ def _get_schema_statements(backend: str) -> List[str]:
         # Many-to-many between persons and ministries (optionally via areas)
         f"""
         CREATE TABLE IF NOT EXISTS person_ministry (
+            {'id SERIAL PRIMARY KEY,' if not is_sqlite else ''}
             person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
             ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
             area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
-            is_primary {boolean_default},
-            PRIMARY KEY (person_id, ministry_id, area_id)
+            is_primary {boolean_default}
+            {', PRIMARY KEY (person_id, ministry_id, area_id)' if is_sqlite else ''}
         )
         """,
 
