@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from types import SimpleNamespace
 from pathlib import Path
@@ -15,10 +16,13 @@ class AppConfig:
 
 	- db_path: optional path to the sqlite database file. If None, the
 	  default path (data/renuevo.db) is used.
+	- db_url: optional PostgreSQL connection string. If provided, it takes
+	  precedence over db_path and the app will use PostgreSQL.
 	- initialize_schema: when True the schema will be created on startup.
 	"""
 
 	db_path: Optional[str] = None
+	db_url: Optional[str] = None
 	initialize_schema: bool = True
 
 
@@ -54,8 +58,9 @@ def _ensure_db_visible_to_repos(db_instance: Database) -> None:
 def create_database(config: AppConfig, override_db: Optional[Database] = None) -> Database:
 	"""Return a Database instance ready to use by the application.
 
-	If override_db is provided it will be used directly (useful for tests)
-	otherwise a Database pointing to config.db_path will be created.
+	If override_db is provided it will be used directly (useful for tests).
+	If config.db_url or the DATABASE_URL environment variable is present,
+	PostgreSQL will be used. Otherwise a SQLite database file is used.
 
 	The function also ensures the repository modules and the db module
 	point at the chosen instance so service code will operate against it.
@@ -63,8 +68,12 @@ def create_database(config: AppConfig, override_db: Optional[Database] = None) -
 	if override_db is not None:
 		db_instance = override_db
 	else:
-		db_path = Path(config.db_path) if config.db_path else None
-		db_instance = Database(path=db_path)
+		db_url = config.db_url or os.environ.get("DATABASE_URL")
+		if db_url:
+			db_instance = Database(dsn=db_url)
+		else:
+			db_path = Path(config.db_path) if config.db_path else None
+			db_instance = Database(path=db_path)
 
 	_ensure_db_visible_to_repos(db_instance)
 
