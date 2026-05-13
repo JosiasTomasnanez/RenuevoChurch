@@ -22,6 +22,18 @@ except Exception:  # pragma: no cover - defensive: keep module import stable
     # fall back in case the name resolution changes; keep it explicit
     from ..db import db as db
 
+
+
+def _normalize_value(value, to_int: bool = False):
+    """Normalize empty strings to None and optionally cast to int."""
+    if value == "":
+        return None
+
+    if to_int and value is not None:
+        return int(value)
+
+    return value
+
 def _get_ministry_name(ministry_id: int) -> Optional[str]:
     """Helper to get ministry name by id."""
     if ministry_id is None:
@@ -491,35 +503,49 @@ def find_person_by_id(person_id: int) -> Optional[Dict]:
 
 
 def create_person(payload: Dict) -> int:
-    """Insert a new person and optionally an address.
-
-    Args:
-        payload: Dictionary containing person and address fields.
-                Can include: first_name, last_name, email, birthdate, dni, phone_number,
-                marital_status, social_security, baptized, cdb,
-                address_id, trusted_person_id, ministry_area_id, consolidation_id,
-                future_ministry_area_id,
-                street, neighborhood, house_number
-
-    Returns:
-        The id of the newly created person.
-
-    Raises:
-        ValueError: If no person data is provided.
-    """
+    """Insert a new person and optionally an address."""
     addr_id = None
 
-    # Insert address if any address fields provided
+    int_fields = {
+        "house_number",
+        "cdb",
+        "trusted_person_id",
+        "ministry_id",
+        "ministry_area_id",
+        "consolidation_id",
+        "future_ministry_area_id",
+    }
+
+    # -----------------------------
+    # Address
+    # -----------------------------
     address_fields = ("street", "neighborhood", "house_number")
-    addr_vals = {k: payload.get(k) for k in address_fields if payload.get(k)}
+
+    addr_vals = {}
+
+    for key in address_fields:
+        if key not in payload:
+            continue
+
+        value = _normalize_value(
+            payload.get(key),
+            to_int=(key in int_fields),
+        )
+
+        if value is not None:
+            addr_vals[key] = value
 
     if addr_vals:
         cols = ", ".join(addr_vals.keys())
         placeholders = ", ".join(["?"] * len(addr_vals))
+
         sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
+
         addr_id = db.insert(sql, tuple(addr_vals.values()))
 
-    # Build person insert columns/values dynamically
+    # -----------------------------
+    # Person
+    # -----------------------------
     cols = []
     vals = []
 
@@ -527,49 +553,86 @@ def create_person(payload: Dict) -> int:
         cols.append("address_id")
         vals.append(addr_id)
 
-    # All person fields from the model
     person_fields = (
-        "first_name", "last_name", "email", "birthdate", "dni", "phone_number",
-        "marital_status", "social_security", "baptized", "cdb",
-        "trusted_person_id", "ministry_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
+        "first_name",
+        "last_name",
+        "email",
+        "birthdate",
+        "dni",
+        "phone_number",
+        "marital_status",
+        "social_security",
+        "baptized",
+        "cdb",
+        "trusted_person_id",
+        "ministry_id",
+        "ministry_area_id",
+        "consolidation_id",
+        "future_ministry_area_id",
     )
+
     for key in person_fields:
-        if payload.get(key) is not None:
+        if key not in payload:
+            continue
+
+        value = _normalize_value(
+            payload.get(key),
+            to_int=(key in int_fields),
+        )
+
+        if value is not None:
             cols.append(key)
-            vals.append(payload.get(key))
+            vals.append(value)
 
     if not cols:
         raise ValueError("no person data provided")
 
     col_sql = ", ".join(cols)
     placeholder_sql = ", ".join(["?"] * len(vals))
+
     sql = f"INSERT INTO person ({col_sql}) VALUES ({placeholder_sql})"
-    person_id = db.insert(sql, tuple(vals))
 
-    return person_id
-
+    return db.insert(sql, tuple(vals))
 
 def update_person(person_id: int, payload: Dict) -> bool:
-    """Update person and/or address fields.
-
-    Args:
-        person_id: The id of the person to update.
-        payload: Dictionary with person and/or address fields to update.
-
-    Returns:
-        True if update affected rows, False otherwise.
-    """
+    """Update person and/or address fields."""
     if person_id is None:
         return False
 
-    # Update address fields if provided
+    int_fields = {
+        "house_number",
+        "cdb",
+        "trusted_person_id",
+        "ministry_id",
+        "ministry_area_id",
+        "consolidation_id",
+        "future_ministry_area_id",
+    }
+
+    # -----------------------------
+    # Address
+    # -----------------------------
     address_fields = ("street", "neighborhood", "house_number")
-    addr_vals = {k: payload[k] for k in address_fields if k in payload}
+
+    addr_vals = {}
+
+    for key in address_fields:
+        if key not in payload:
+            continue
+
+        addr_vals[key] = _normalize_value(
+            payload.get(key),
+            to_int=(key in int_fields),
+        )
 
     if addr_vals:
-        # Fetch current address id
-        cur = db.query_one("SELECT address_id FROM person WHERE person_id = ?", (person_id,))
+        cur = db.query_one(
+            "SELECT address_id FROM person WHERE person_id = ?",
+            (person_id,),
+        )
+
         addr_id = None
+
         if cur:
             try:
                 addr_id = cur["address_id"]
@@ -581,31 +644,70 @@ def update_person(person_id: int, payload: Dict) -> bool:
 
         if addr_id:
             cols = ", ".join([f"{k} = ?" for k in addr_vals.keys()])
+
             params = tuple(addr_vals.values()) + (addr_id,)
-            db.execute(f"UPDATE address SET {cols} WHERE address_id = ?", params)
+
+            db.execute(
+                f"UPDATE address SET {cols} WHERE address_id = ?",
+                params,
+            )
+
         else:
-            # No existing address — create one and attach to person
             cols = ", ".join(addr_vals.keys())
             placeholders = ", ".join(["?"] * len(addr_vals))
-            sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
-            new_addr_id = db.insert(sql, tuple(addr_vals.values()))
-            db.execute("UPDATE person SET address_id = ? WHERE person_id = ?", (new_addr_id, person_id))
 
-    # Update person fields (all available fields)
+            sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
+
+            new_addr_id = db.insert(sql, tuple(addr_vals.values()))
+
+            db.execute(
+                "UPDATE person SET address_id = ? WHERE person_id = ?",
+                (new_addr_id, person_id),
+            )
+
+    # -----------------------------
+    # Person
+    # -----------------------------
     person_fields = (
-        "first_name", "last_name", "email", "birthdate", "dni", "phone_number",
-        "marital_status", "social_security", "baptized", "cdb",
-        "trusted_person_id", "ministry_id", "ministry_area_id", "consolidation_id", "future_ministry_area_id"
+        "first_name",
+        "last_name",
+        "email",
+        "birthdate",
+        "dni",
+        "phone_number",
+        "marital_status",
+        "social_security",
+        "baptized",
+        "cdb",
+        "trusted_person_id",
+        "ministry_id",
+        "ministry_area_id",
+        "consolidation_id",
+        "future_ministry_area_id",
     )
-    pvals = {k: payload[k] for k in person_fields if k in payload}
+
+    pvals = {}
+
+    for key in person_fields:
+        if key not in payload:
+            continue
+
+        pvals[key] = _normalize_value(
+            payload.get(key),
+            to_int=(key in int_fields),
+        )
 
     if pvals:
         cols = ", ".join([f"{k} = ?" for k in pvals.keys()])
+
         params = tuple(pvals.values()) + (person_id,)
-        db.execute(f"UPDATE person SET {cols} WHERE person_id = ?", params)
+
+        db.execute(
+            f"UPDATE person SET {cols} WHERE person_id = ?",
+            params,
+        )
 
     return True
-
 
 __all__ = [
     "find_people_by_neighborhood",
