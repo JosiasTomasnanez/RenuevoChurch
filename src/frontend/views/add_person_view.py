@@ -1,6 +1,7 @@
 from src.frontend.views._base import BaseFrame, tk, messagebox, ttk
 from src.frontend.helpers.config_dropdown_helper import ConfigDropdownHelper
 from src.frontend.helpers.membership_editor_helper import MembershipEditorHelper # <--- NUEVA IMPORTACIÓN
+from tkcalendar import DateEntry
 
 class AddPersonFrame(BaseFrame):
     BG_PRIMARY = "#F0E6F6"
@@ -52,6 +53,21 @@ class AddPersonFrame(BaseFrame):
                 combo = ttk.Combobox(left, width=37, state="readonly")
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
+            elif key == "birthdate":
+                cal = DateEntry(
+                    left, 
+                    width=37, 
+                    background=self.BTN_COLOR,
+                    foreground='white', 
+                    borderwidth=2,
+                    year=2000, 
+                    date_pattern='yyyy-mm-dd', # Formato que entiende tu BD
+                    locale='es_ES',            # Meses en español
+                    headersbackground='#E6D5F2'
+                )
+                cal.grid(row=i, column=1, sticky="w", padx=6, pady=3)
+                self.entries[key] = cal # Guardamos el widget en entries para que _on_submit lo lea igual
+            
             else:
                 ent = tk.Entry(left, width=40, bg=self.BG_INPUT, fg=self.TEXT_DARK, relief="solid", bd=1)
                 ent.grid(row=i, column=1, sticky="w", padx=6, pady=3)

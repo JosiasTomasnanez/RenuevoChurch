@@ -1,5 +1,6 @@
 from src.frontend.views._base import BaseFrame, tk, ttk
 from src.frontend.helpers.config_dropdown_helper import ConfigDropdownHelper
+from datetime import datetime
 
 class SearchPersonFrame(BaseFrame):
     BG_PRIMARY = "#F0E6F6"
@@ -18,13 +19,13 @@ class SearchPersonFrame(BaseFrame):
         
         # Columnas disponibles
         self._all_cols = (
-            "person_id", "first_name", "last_name", "dni", "neighborhood", 
+            "person_id", "first_name", "last_name", "dni","birthdate","age", "neighborhood", 
             "phone_number", "baptized", "cdb", "consolidation_id"
         )
         self._headers = {
             "person_id": "ID", "first_name": "Nombre", "last_name": "Apellido",
-            "dni": "DNI", "neighborhood": "Barrio", "phone_number": "Teléfono",
-            "baptized": "Baut.", "cdb": "CDB", "consolidation_id": "Consolidación"
+            "dni": "DNI", "birthdate": "Fec. Nac.", "age": "Edad", "neighborhood": "Barrio", "phone_number": "Teléfono",
+            "baptized": "Bautizado", "cdb": "CDB", "consolidation_id": "Consolidación"
         }
         
         _defaults = {"person_id", "first_name", "last_name", "dni", "neighborhood"}
@@ -146,31 +147,57 @@ class SearchPersonFrame(BaseFrame):
         self.drop_helper.refresh_all()
         self._on_search()
 
-    # --- FILTROS ---
+ 
+ 
+ 
     def _get_formatted_value(self, p, col):
-        """Extrae valores de forma segura, incluso si address es None."""
-        # 1. Intentar obtener del primer nivel del diccionario
+        """Extrae y formatea valores, incluyendo el cálculo de edad al vuelo."""
+    
+        if col == "age":
+            bday = p.get("birthdate")
+            if not bday: 
+                return ""
+            try:
+                if isinstance(bday, str):
+                    bday_dt = datetime.strptime(bday, "%Y-%m-%d").date()
+                else:
+                    bday_dt = bday
+                
+                today = datetime.now().date()
+                age = today.year - bday_dt.year - ((today.month, today.day) < (bday_dt.month, bday_dt.day))
+                return f"{age} años"
+            except:
+                return ""
+
+  
         val = p.get(col)
-        
-        # 2. Si no está ahí, buscar en la dirección (con chequeo de seguridad)
+    
         if val is None:
             addr = p.get("address")
-            if isinstance(addr, dict): # Solo si es un diccionario, pedimos el campo
+            if isinstance(addr, dict): 
                 val = addr.get(col)
-        
-        # 3. Formateo de IDs a nombres usando el helper
+    
         if col == "consolidation_id" and val:
             obj = self.drop_helper.find_consolidation_by_id(val)
             return obj["level"] if obj else f"ID: {val}"
-        
+    
         if col == "cdb" and val:
             obj = self.drop_helper.find_cdb_by_id(val)
             return f"CDB {obj['number']}" if obj else f"ID: {val}"
-            
+        
         if col == "baptized":
             return "Sí" if val else "No"
+        
+        if col == "birthdate" and val:
+            try:
+                d = datetime.strptime(str(val), "%Y-%m-%d")
+                return d.strftime("%d/%m/%Y")
+            except:
+                return val
             
         return val if val is not None else ""
+ 
+ 
 
     def _apply_filters(self, results):
         """Aplica los filtros activos de forma segura."""

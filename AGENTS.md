@@ -44,9 +44,7 @@ Aplicación para administrar la base de datos de una iglesia (personas, minister
     - `add_person_view.py`: alta de persona, incluyendo editor de múltiples asignaciones a ministerios/áreas.
     - `modify_person_view.py`: modificación de persona + editor de asignaciones.
     - `config_view.py`: administración de catálogos (ministerios, áreas, consolidación, CDB).
-  - Controladores: `src/frontend/controllers/`
-    - `person_controller.py`: puente entre vistas y `services.people`.
-    - `config_controller.py`: puente entre vistas de configuración y `services.config`.
+
 
 ## Convenciones y buenas prácticas
 

@@ -18,6 +18,7 @@ from ..db.repositories import (
 )
 from ..models.person import Person
 from ..db.repositories import get_area_and_ministry
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,7 @@ def create_person(payload: dict) -> int:
 	Returns:
 		The id of the newly created person.
 	"""
+	_validate_person_payload(payload)
 	return _repo_create(payload)
 
 
@@ -190,6 +192,7 @@ def update_person(person_id: int, payload: dict) -> bool:
 	Returns:
 		True if update succeeded, False otherwise.
 	"""
+	_validate_person_payload(payload)
 	return _repo_update(person_id, payload)
 
 
@@ -208,4 +211,30 @@ def update_person_memberships(person_id: int, memberships: list) -> None:
 
 
 __all__.append("update_person_memberships")
+
+def _validate_person_payload(payload: dict):
+    """Valida la coherencia de los datos. Lanza ValueError si falla."""
+    
+    # 1. Validar Fecha de Nacimiento
+    birthdate = payload.get("birthdate")
+    if birthdate:
+        try:
+            if isinstance(birthdate, str):
+                b_date = datetime.strptime(birthdate, "%Y-%m-%d").date()
+            else:
+                b_date = birthdate 
+            
+            if b_date > datetime.now().date():
+                raise ValueError("La fecha de nacimiento no puede ser posterior al día de hoy.")
+            
+            if b_date.year < 1900:
+                raise ValueError("La fecha de nacimiento no es válida (año demasiado antiguo).")
+                
+        except ValueError as e:
+            if "format" in str(e):
+                raise ValueError("El formato de fecha debe ser YYYY-MM-DD.")
+            raise e
+
+    if not payload.get("first_name") or not payload.get("last_name"):
+        raise ValueError("El nombre y el apellido son obligatorios.")
 
