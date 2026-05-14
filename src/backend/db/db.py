@@ -277,6 +277,12 @@ def _get_schema_statements(backend: str) -> List[str]:
     boolean_default = "BOOLEAN DEFAULT 0" if is_sqlite else "BOOLEAN DEFAULT FALSE"
 
     return [
+        f"""
+        CREATE TABLE IF NOT EXISTS marital_status (
+            id {pk},
+            name TEXT NOT NULL UNIQUE
+        )
+        """,
         # Consolidation levels
         f"""
         CREATE TABLE IF NOT EXISTS consolidation (
