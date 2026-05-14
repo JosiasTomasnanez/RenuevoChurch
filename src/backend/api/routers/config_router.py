@@ -167,3 +167,25 @@ def delete_cdb(cdb_id: int):
         raise HTTPException(status_code=404, detail="CDB not found")
 
     return {"status": "deleted"}
+
+# ================================
+# Marital Status
+# ================================
+
+@router.get("/marital-statuses")
+def get_marital_statuses():
+    """Endpoint para obtener la lista de estados civiles."""
+    return service.get_marital_statuses()
+
+@router.post("/marital-statuses")
+def create_marital_status(name: str): # O usa un schema si prefieres
+    """Endpoint para crear un nuevo estado civil."""
+    return {"id": service.create_marital_status(name)}
+
+@router.delete("/marital-statuses/{status_id}")
+def delete_marital_status(status_id: int):
+    """Endpoint para eliminar un estado civil."""
+    ok = service.delete_marital_status(status_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Status not found")
+    return {"status": "deleted"}
