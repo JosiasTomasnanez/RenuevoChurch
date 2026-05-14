@@ -20,6 +20,7 @@ class Person:
 	last_name: Optional[str]
 	email: Optional[str]
 	birthdate: Optional[str]
+	gender: Optional[str]
 	dni: Optional[int]
 	phone_number: Optional[str]
 	marital_status: Optional[str]
@@ -93,6 +94,7 @@ class Person:
 				last_name=data.get("last_name"),
 				email=data.get("email"),
 				birthdate=data.get("birthdate"),
+				gender=data.get("gender"),
 				dni=data.get("dni"),
 				phone_number=data.get("phone_number"),
 				marital_status=data.get("marital_status"),
@@ -148,6 +150,7 @@ class Person:
 			last_name=Person._get(p, "last_name"),
 			email=Person._get(p, "email"),
 			birthdate=Person._get(p, "birthdate"),
+			gender=Person._get(p, "gender"),
 			dni=Person._get(p, "dni"),
 			phone_number=Person._get(p, "phone_number"),
 			marital_status=Person._get(p, "marital_status"),

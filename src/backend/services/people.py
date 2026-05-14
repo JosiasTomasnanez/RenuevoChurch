@@ -5,6 +5,7 @@ typed `Person` objects from `src.backend.models.person`.
 """
 from typing import List, Optional
 import logging
+import re
 
 from ..db.repositories import (
 	find_people_by_neighborhood,
@@ -213,23 +214,53 @@ def update_person_memberships(person_id: int, memberships: list) -> None:
 __all__.append("update_person_memberships")
 
 def _validate_person_payload(payload: dict):
-    """Valida la coherencia de los datos. Lanza ValueError si falla."""
+    """Valida y normaliza la coherencia de los datos. Lanza ValueError si falla."""
+
+    # 1. Normalización de campos de texto
+    text_fields = ["first_name", "last_name", "neighborhood", "street", "email"]
     
-    # 1. Validar Fecha de Nacimiento
+    for field in text_fields:
+        val = payload.get(field)
+        if isinstance(val, str):
+            val = val.strip()
+            val = re.sub(r'\s+', ' ', val)
+            
+            if field == "email":
+                payload[field] = val.lower()
+            else:
+                payload[field] = val.title()
+    
+    email = payload.get("email")
+    if email:
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, email):
+            raise ValueError(f"El formato del correo '{email}' no es válido.")
+        
+    gender = payload.get("gender")
+    if gender:
+        normalized_gender = str(gender).strip().title()
+        valid_genders = ["Masculino", "Femenino"]
+        
+        if normalized_gender not in valid_genders:
+            raise ValueError(f"Género '{gender}' no válido. Opciones: {', '.join(valid_genders)}.")
+        
+        payload["gender"] = normalized_gender
+
     birthdate = payload.get("birthdate")
     if birthdate:
         try:
             if isinstance(birthdate, str):
                 b_date = datetime.strptime(birthdate, "%Y-%m-%d").date()
             else:
-                b_date = birthdate 
+                b_date = birthdate.date() if hasattr(birthdate, "date") else birthdate 
             
             if b_date > datetime.now().date():
                 raise ValueError("La fecha de nacimiento no puede ser posterior al día de hoy.")
-            
             if b_date.year < 1900:
                 raise ValueError("La fecha de nacimiento no es válida (año demasiado antiguo).")
                 
+            payload["birthdate"] = b_date
+            
         except ValueError as e:
             if "format" in str(e):
                 raise ValueError("El formato de fecha debe ser YYYY-MM-DD.")
@@ -238,3 +269,4 @@ def _validate_person_payload(payload: dict):
     if not payload.get("first_name") or not payload.get("last_name"):
         raise ValueError("El nombre y el apellido son obligatorios.")
 
+    return payload
