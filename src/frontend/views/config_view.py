@@ -22,6 +22,7 @@ class ConfigurationFrame(BaseFrame):
         self._build_areas_tab(notebook)
         self._build_consolidation_tab(notebook)
         self._build_cdb_tab(notebook)
+        self._build_marital_status_tab(notebook)
 
     def _on_config_changed(self):
         """Se llama cuando cualquier tabla cambia para refrescar combos y avisar a otros."""
@@ -33,6 +34,39 @@ class ConfigurationFrame(BaseFrame):
     def _register_refresh_callback(self, callback):
         if callback not in self._refresh_callbacks:
             self._refresh_callbacks.append(callback)
+
+    def _build_marital_status_tab(self, notebook):
+        frame = ttk.Frame(notebook)
+        notebook.add(frame, text="Estado Civil")
+        
+        input_frame = tk.Frame(frame)
+        input_frame.pack(fill="x", padx=6, pady=6)
+        
+        tk.Label(input_frame, text="Nombre:").pack(side="left")
+        entry = tk.Entry(input_frame, width=40)
+        entry.pack(side="left", padx=6)
+        
+        listbox = tk.Listbox(frame, width=50, height=15)
+        listbox.pack(padx=6, pady=6, fill="both", expand=True)
+
+        # Usamos el mismo helper de tablas que usas para Ministerios
+        self.marital_helper = ConfigTableHelper(
+            label="Estado Civil",
+            entry_widget=entry,
+            listbox_widget=listbox,
+            on_get_items=self.config_service.get_marital_statuses,
+            on_add=self.config_service.create_marital_status,
+            on_update=lambda id, val: None, # Opcional: no pusimos update en el repo
+            on_delete=self.config_service.delete_marital_status,
+            display_key="name",
+            item_id_key="id",
+            on_change=self._on_config_changed
+        )
+
+        tk.Button(input_frame, text="Agregar", command=self.marital_helper.add).pack(side="left")
+        tk.Button(input_frame, text="Eliminar", command=self.marital_helper.delete, bg="#c0392b", fg="white").pack(side="left")
+        
+        self.marital_helper.refresh_list()
 
     def _build_ministries_tab(self, notebook):
         frame = ttk.Frame(notebook)

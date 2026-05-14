@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from src.backend.services.config import ConfigService
 from src.backend.api.schemas.config_schema import (
     MinistryCreate, MinistryUpdate,
@@ -6,6 +7,8 @@ from src.backend.api.schemas.config_schema import (
     ConsolidationCreate, ConsolidationUpdate,
     CdbCreate, CdbUpdate
 )
+class MaritalStatusCreate(BaseModel):
+    name: str
 
 router = APIRouter(
     prefix="/config",
@@ -178,9 +181,9 @@ def get_marital_statuses():
     return service.get_marital_statuses()
 
 @router.post("/marital-statuses")
-def create_marital_status(name: str): # O usa un schema si prefieres
+def create_marital_status(data: MaritalStatusCreate): # <--- Ahora usa 'data' con el schema
     """Endpoint para crear un nuevo estado civil."""
-    return {"id": service.create_marital_status(name)}
+    return {"id": service.create_marital_status(data.name)}
 
 @router.delete("/marital-statuses/{status_id}")
 def delete_marital_status(status_id: int):
