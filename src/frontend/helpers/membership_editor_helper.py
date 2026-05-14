@@ -29,7 +29,7 @@ class MembershipEditorHelper:
     def _build_ui(self):
         """Construye los widgets dentro del frame padre."""
         # Título interno
-        tk.Label(self.parent_frame, text="Asignaciones de Ministerios", 
+        tk.Label(self.parent_frame, text="Ministerios", 
                  bg=self.colors["bg"], fg=self.colors["text"], 
                  font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
 

@@ -84,7 +84,7 @@ class SearchPersonFrame(BaseFrame):
         self._create_tree()
 
         # --- DETAILS ---
-        self.details_frame = tk.LabelFrame(self, text=" Asignaciones Actuales ", bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
+        self.details_frame = tk.LabelFrame(self, text=" Ministerios en los que participa ", bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
         self.details_frame.pack(fill="x", padx=6, pady=10)
         self.details_list = tk.Listbox(self.details_frame, height=3, bg=self.BG_INPUT, relief="flat")
         self.details_list.pack(fill="x", padx=5, pady=5)
