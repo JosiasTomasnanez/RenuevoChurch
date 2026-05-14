@@ -94,6 +94,17 @@ class ConfigService:
     def delete_cdb(self, cdb_id: int) -> bool:
         """Delete a CDB house."""
         return repo.delete_cdb(cdb_id)
+    
+    def get_marital_statuses(self) -> List[Dict]:
+        """Get all marital status options."""
+        return repo.get_marital_statuses()
 
+    def create_marital_status(self, name: str) -> int:
+        """Create a new marital status option."""
+        return repo.create_marital_status(name)
+
+    def delete_marital_status(self, status_id: int) -> bool:
+        """Delete a marital status option."""
+        return repo.delete_marital_status(status_id)
 
 __all__ = ["ConfigService"]

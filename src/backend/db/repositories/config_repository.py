@@ -303,6 +303,19 @@ def delete_cdb(cdb_id: int) -> bool:
     return True
 
 
+
+
+#estado civil
+
+def get_marital_statuses():
+    return db.query_all("SELECT id, name FROM marital_status ORDER BY name ASC")
+
+def create_marital_status(name):
+    return db.insert("INSERT INTO marital_status (name) VALUES (%s)", (name,))
+
+def delete_marital_status(status_id):
+    return db.execute("DELETE FROM marital_status WHERE id = %s", (status_id,))
+
 __all__ = [
     "get_all_ministries",
     "get_ministry_by_id",
@@ -325,4 +338,7 @@ __all__ = [
     "create_cdb",
     "update_cdb",
     "delete_cdb",
+    "get_marital_statuses",
+    "create_marital_status",
+    "delete_marital_status"
 ]

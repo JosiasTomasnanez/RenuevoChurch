@@ -9,19 +9,23 @@ class ConfigDropdownHelper:
         self._ministry_cache = []
         self._consolidation_cache = []
         self._cdb_cache = []
+        self._marital_cache = []
 
-    # --- MÉTODOS DE REFRESCO ---
+  
     def refresh_all(self):
         """Fuerza la recarga de todos los datos desde el service."""
         try:
             self._ministry_cache = self.config_service.get_all_ministries()
             self._consolidation_cache = self.config_service.get_all_consolidations()
             self._cdb_cache = self.config_service.get_all_cdb_options()
+            self._marital_cache = self.config_service.get_marital_statuses()
+          
+                
         except Exception:
-            # Si falla el service, limpiamos para evitar datos corruptos
             self._ministry_cache = []
             self._consolidation_cache = []
             self._cdb_cache = []
+            self._marital_cache = []
 
     # --- MÉTODOS PARA LLENAR COMBOS (UI) ---
     def fill_ministries(self, combo):
@@ -92,3 +96,14 @@ class ConfigDropdownHelper:
             if m.get("ministry_id") == ministry_id:
                 return m
         return None
+    
+    def fill_marital_statuses(self, combo):
+        """Llena el combo con los textos de estado civil desde el ConfigService."""
+        try:
+            if not self._marital_cache:
+                self._marital_cache = self.config_service.get_marital_statuses()
+            
+            combo["values"] = [m["name"] for m in self._marital_cache]
+        except Exception as e:
+            print(f"Error al llenar estados civiles: {e}")
+            combo["values"] = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a"]

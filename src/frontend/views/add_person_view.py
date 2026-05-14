@@ -51,7 +51,7 @@ class AddPersonFrame(BaseFrame):
         for i, (key, label) in enumerate(fields):
             tk.Label(left, text=label, bg=self.BG_PRIMARY, fg=self.TEXT_DARK).grid(row=i, column=0, sticky="w", padx=6, pady=3)
             
-            if key in ["consolidation_id", "cdb", "baptized", "gender"]:
+            if key in ["consolidation_id", "cdb", "baptized", "gender","marital_status"]:
                 combo = ttk.Combobox(left, width=37, state="readonly")
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
@@ -77,6 +77,7 @@ class AddPersonFrame(BaseFrame):
 
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
+        self.drop_helper.fill_marital_statuses(self.combos["marital_status"])
         
         self.combos["gender"]["values"] = ["Masculino", "Femenino"] 
 
@@ -95,27 +96,21 @@ class AddPersonFrame(BaseFrame):
         )
 
     def _on_submit(self):
-        # 1. Recolectar lo que hay en entries (nombres, fechas, etc)
         payload = {k: (v.get() or None) for k, v in self.entries.items()}
         
-        # 2. Asegurarnos de que Nombre y Apellido existan antes de seguir
         if not payload.get("first_name") or not payload.get("last_name"):
             messagebox.showerror("Error", "Nombre y Apellido son obligatorios")
             return
 
-        # 3. EXTRAER LOS COMBOS EXPLÍCITAMENTE
-        # Esto asegura que el valor del combo de género se sume al diccionario
-        payload["gender"] = self.combos["gender"].get() # <--- ¡CLAVE!
+        payload["gender"] = self.combos["gender"].get() 
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
+        payload["marital_status"] = self.combos["marital_status"].get()
         payload["consolidation_id"] = self.drop_helper.get_consolidation_id(self.combos["consolidation_id"].get())
         payload["cdb"] = self.drop_helper.get_cdb_id(self.combos["cdb"].get())
 
-        # TIP PRO: Agregá este print para ver en tu terminal exactamente qué estás enviando
-        print(f"DEBUG: Payload enviado -> {payload}")
 
         try:
             person_id = self.controller.create_person(payload)
-            # ... resto del código igual
             current_mems = self.membership_editor.memberships
             if current_mems:
                 db_mems = [{"ministry_id": m["ministry_id"], "area_id": m["area_id"]} for m in current_mems]
@@ -141,5 +136,5 @@ class AddPersonFrame(BaseFrame):
         self.drop_helper.refresh_all()
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
-        # Le pedimos al helper que también se refresque
+        self.drop_helper.fill_marital_statuses(self.combos["marital_status"])
         self.membership_editor.refresh_ministry_combo()
