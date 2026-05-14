@@ -69,7 +69,7 @@ class ModifyPersonFrame(BaseFrame):
                 cal.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = cal
 
-            elif key in ["consolidation_id", "cdb", "baptized","gender"]:
+            elif key in ["consolidation_id", "cdb", "baptized","gender","marital_status"]:
                 combo = ttk.Combobox(left, width=37, state="readonly")
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
@@ -80,6 +80,8 @@ class ModifyPersonFrame(BaseFrame):
 
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
+        statuses = [s["name"] for s in self.config_service.get_marital_statuses()]
+        self.combos["marital_status"]["values"] = statuses
         self.combos["baptized"]["values"] = ["Sí", "No"]
         self.combos["gender"]["values"] = ["Masculino", "Femenino"]
 
@@ -132,7 +134,10 @@ class ModifyPersonFrame(BaseFrame):
                 if val is not None: 
                     self.entries[key].delete(0, tk.END)
                     self.entries[key].insert(0, str(val))
-
+            status_val = person.get("marital_status")
+            if status_val:
+                self.combos["marital_status"].set(status_val)
+            self.combos["gender"].set(person.get("gender") or "")
             cons_obj = self.drop_helper.find_consolidation_by_id(person.get("consolidation_id"))
             if cons_obj: self.combos["consolidation_id"].set(cons_obj["level"])
 
@@ -141,9 +146,6 @@ class ModifyPersonFrame(BaseFrame):
 
             self.combos["baptized"].set("Sí" if person.get("baptized") else "No")
             
-            gender_val = person.get("gender")
-            if gender_val:
-                self.combos["gender"].set(gender_val)
             mems = self.controller.get_memberships(self.person_id) or []
             self.membership_editor.set_memberships(mems)
 
@@ -161,6 +163,7 @@ class ModifyPersonFrame(BaseFrame):
         payload["cdb"] = self.drop_helper.get_cdb_id(self.combos["cdb"].get())
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
         payload["gender"] = self.combos["gender"].get()
+        payload["marital_status"] = self.combos["marital_status"].get()
 
         try:
             self.controller.update_person(self.person_id, payload)
@@ -182,13 +185,16 @@ class ModifyPersonFrame(BaseFrame):
         except Exception as e: messagebox.showerror("Error", str(e))
 
     def _clear_form(self):
+        """Limpia todos los campos del formulario y resetea el estado inicial."""
         for k, e in self.entries.items():
             if k == "birthdate":
-                e.set_date(datetime.now()) # Reset al día de hoy
+                e.set_date(datetime.now()) 
             else:
-                e.delete(0, tk.END)
-        for c in self.combos.values(): c.set("")
-        self.combos["gender"].set("Masculino")
+                e.delete(0, tk.END) 
+
+        for c in self.combos.values(): 
+            c.set("") 
+
         self.membership_editor.clear()
         self.person_id = None
 
@@ -196,7 +202,12 @@ class ModifyPersonFrame(BaseFrame):
         self.drop_helper.refresh_all()
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
-        self.membership_editor.refresh_ministry_combo() # Refrescar ministerios en el helper
+        try:
+            statuses = [s["name"] for s in self.config_service.get_marital_statuses()]
+            self.combos["marital_status"]["values"] = statuses
+        except Exception as e:
+            print(f"Error al refrescar estados civiles: {e}")
+        self.membership_editor.refresh_ministry_combo() 
 
     def load_person_by_id(self, person_id: int):
         self._clear_form()

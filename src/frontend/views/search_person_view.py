@@ -19,20 +19,20 @@ class SearchPersonFrame(BaseFrame):
         
         # Columnas disponibles
         self._all_cols = (
-            "person_id", "first_name", "last_name","gender", "dni","birthdate","age", "neighborhood", 
+            "person_id", "first_name", "last_name","gender","marital_status", "dni","birthdate","age", "neighborhood", 
             "phone_number", "baptized", "cdb", "consolidation_id"
         )
         self._headers = {
             "person_id": "ID", "first_name": "Nombre", "last_name": "Apellido",
-            "gender": "Género", "dni": "DNI", "birthdate": "Fec. Nac.", "age": "Edad", "neighborhood": "Barrio", "phone_number": "Teléfono",
+            "gender": "Género","marital_status": "Estado Civil", "dni": "DNI", "birthdate": "Fec. Nac.", "age": "Edad", "neighborhood": "Barrio", "phone_number": "Teléfono",
             "baptized": "Bautizado", "cdb": "CDB", "consolidation_id": "Consolidación"
         }
         
         _defaults = {"person_id", "first_name", "last_name", "dni", "neighborhood"}
         self._col_vars = {c: tk.BooleanVar(value=(c in _defaults)) for c in self._all_cols}
         
-        self._active_filters = {"neighborhood": None, "ministry": None, "cdb": None}
-        
+        self._active_filters = {"neighborhood": None, "ministry": None, "cdb": None, "marital_status": None}
+
         self._build()
 
     def _build(self):
@@ -70,9 +70,10 @@ class SearchPersonFrame(BaseFrame):
 
         filt_mb = tk.Menubutton(r_frame, text="Filtros ▾", relief="raised", bg=self.BTN_COLOR, fg="white")
         filt_menu = tk.Menu(filt_mb, tearoff=False)
-        filt_menu.add_command(label="Barrio...", command=lambda: self._open_filter("neighborhood"))
         filt_menu.add_command(label="Ministerio...", command=lambda: self._open_filter("ministry"))
         filt_menu.add_command(label="CDB...", command=lambda: self._open_filter("cdb"))
+        filt_menu.add_command(label="Estado Civil...", command=lambda: self._open_filter("marital_status"))
+        filt_menu.add_command(label="Barrio...", command=lambda: self._open_filter("neighborhood"))
         filt_menu.add_separator()
         filt_menu.add_command(label="Limpiar Filtros", command=self._clear_all_filters)
         filt_mb.config(menu=filt_menu)
@@ -113,39 +114,6 @@ class SearchPersonFrame(BaseFrame):
             values = [self._get_formatted_value(p, col) for col in visible_cols]
             self.tree.insert("", "end", iid=str(p["person_id"]), values=values)
 
-    def _get_formatted_value(self, p, col):
-        """Extrae y formatea valores de la persona 'p' para la columna 'col'."""
-
-        if col == "age":
-            bday = p.get("birthdate")
-            if not bday: return ""
-            try:
-                bday_dt = datetime.strptime(bday, "%Y-%m-%d").date() if isinstance(bday, str) else bday
-                today = datetime.now().date()
-                age = today.year - bday_dt.year - ((today.month, today.day) < (bday_dt.month, bday_dt.day))
-                return f"{age} años"
-            except:
-                return ""
-        val = p.get(col)
-        if val is None and isinstance(p.get("address"), dict):
-            val = p.get("address").get(col)
-        if col == "gender":
-            return val if val else ""
-        if col == "baptized":
-            return "Sí" if val else "No"
-        if col == "birthdate" and val:
-            try:
-                d = datetime.strptime(str(val), "%Y-%m-%d")
-                return d.strftime("%d/%m/%Y")
-            except:
-                return val
-        if col == "consolidation_id" and val:
-            obj = self.drop_helper.find_consolidation_by_id(val)
-            return obj["level"] if obj else f"ID: {val}"
-        if col == "cdb" and val:
-            obj = self.drop_helper.find_cdb_by_id(val)
-            return f"CDB {obj['number']}" if obj else f"ID: {val}"
-        return str(val) if val is not None else ""
 
     def _on_tree_select(self, event=None):
         sel = self.tree.selection()
@@ -208,6 +176,9 @@ class SearchPersonFrame(BaseFrame):
             obj = self.drop_helper.find_cdb_by_id(val)
             return f"CDB {obj['number']}" if obj else f"ID: {val}"
         
+        if col == "marital_status":
+            return val if val else ""
+        
         if col == "baptized":
             return "Sí" if val else "No"
         
@@ -243,6 +214,8 @@ class SearchPersonFrame(BaseFrame):
                     res = [p for p in res if p["person_id"] in allowed_ids]
             except:
                 pass
+        if f["marital_status"]:
+            res = [p for p in res if p.get("marital_status") == f["marital_status"]]
             
         return res
 
@@ -291,6 +264,16 @@ class SearchPersonFrame(BaseFrame):
             self.drop_helper.refresh_all()
             options = [f"CDB {c['number']}" for c in self.drop_helper._cdb_cache]
 
+        elif name == "marital_status":
+            # En lugar de usar la lista fija, le pedimos los datos al backend
+            try:
+                # Obtenemos la lista de la DB a través del servicio
+                statuses = self.config_service.get_marital_statuses()
+                options = [s["name"] for s in statuses]
+            except Exception as e:
+                print(f"Error al cargar estados civiles para filtro: {e}")
+                # Fallback por si falla la conexión
+                options = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a"]
         for o in options: 
             lb.insert(tk.END, o)
 

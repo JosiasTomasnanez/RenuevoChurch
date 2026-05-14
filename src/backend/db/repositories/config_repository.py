@@ -314,7 +314,14 @@ def create_marital_status(name):
     return db.insert("INSERT INTO marital_status (name) VALUES (%s)", (name,))
 
 def delete_marital_status(status_id):
-    return db.execute("DELETE FROM marital_status WHERE id = %s", (status_id,))
+    if status_id is None:
+        return False
+    try:
+        db.execute("DELETE FROM marital_status WHERE id = %s", (status_id,))
+        return True
+    except Exception as e:
+        print(f"Error eliminando estado civil: {e}")
+        return False
 
 __all__ = [
     "get_all_ministries",
