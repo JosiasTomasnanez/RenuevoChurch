@@ -40,7 +40,7 @@ class ModifyPersonFrame(BaseFrame):
         fields = [
             ("person_id", "ID Persona"), ("first_name", "Nombre"),
             ("last_name", "Apellido"), ("email", "Correo"),
-            ("birthdate", "Fecha de nacimiento"), # Quitamos el (YYYY-MM-DD) porque ya hay calendario
+            ("birthdate", "Fecha de nacimiento"), ("gender", "Género"),
             ("dni", "DNI"), ("phone_number", "Teléfono"),
             ("marital_status", "Estado civil"), ("social_security", "Seguro Social"),
             ("street", "Calle"), ("neighborhood", "Barrio"),
@@ -69,7 +69,7 @@ class ModifyPersonFrame(BaseFrame):
                 cal.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = cal
 
-            elif key in ["consolidation_id", "cdb", "baptized"]:
+            elif key in ["consolidation_id", "cdb", "baptized","gender"]:
                 combo = ttk.Combobox(left, width=37, state="readonly")
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
@@ -81,6 +81,7 @@ class ModifyPersonFrame(BaseFrame):
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
         self.combos["baptized"]["values"] = ["Sí", "No"]
+        self.combos["gender"]["values"] = ["Masculino", "Femenino"]
 
         self.membership_editor = MembershipEditorHelper(
             parent_frame=right, config_service=self.config_service,
@@ -93,6 +94,7 @@ class ModifyPersonFrame(BaseFrame):
         
         tk.Button(btn_f, text="Guardar cambios", command=self._on_save, bg=self.BTN_COLOR, fg="white", width=18).pack(side="left", padx=5)
         tk.Button(btn_f, text="Eliminar persona", command=self._on_delete, bg="#A83030", fg="white", width=18).pack(side="left", padx=5)
+    
     def _on_load(self):
         pid = self.entries["person_id"].get().strip()
         if not pid: return
@@ -110,18 +112,16 @@ class ModifyPersonFrame(BaseFrame):
                 if key == "person_id": continue
                 
                 val = person.get(key)
-                
-                # --- LÓGICA ESPECIAL PARA EL CALENDARIO ---
+
                 if key == "birthdate" and val:
                     try:
-                        # Si val ya es un objeto date/datetime lo usamos, sino lo parseamos
                         if isinstance(val, str):
                             date_obj = datetime.strptime(val, "%Y-%m-%d")
                         else:
                             date_obj = val
                         self.entries[key].set_date(date_obj)
                     except:
-                        pass # Si falla el parseo, queda la fecha por defecto
+                        pass 
                 
                 elif val is not None: 
                     self.entries[key].insert(0, str(val))
@@ -140,7 +140,10 @@ class ModifyPersonFrame(BaseFrame):
             if cdb_obj: self.combos["cdb"].set(str(cdb_obj["number"]))
 
             self.combos["baptized"].set("Sí" if person.get("baptized") else "No")
-
+            
+            gender_val = person.get("gender")
+            if gender_val:
+                self.combos["gender"].set(gender_val)
             mems = self.controller.get_memberships(self.person_id) or []
             self.membership_editor.set_memberships(mems)
 
@@ -157,6 +160,7 @@ class ModifyPersonFrame(BaseFrame):
         payload["consolidation_id"] = self.drop_helper.get_consolidation_id(self.combos["consolidation_id"].get())
         payload["cdb"] = self.drop_helper.get_cdb_id(self.combos["cdb"].get())
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
+        payload["gender"] = self.combos["gender"].get()
 
         try:
             self.controller.update_person(self.person_id, payload)
@@ -184,6 +188,7 @@ class ModifyPersonFrame(BaseFrame):
             else:
                 e.delete(0, tk.END)
         for c in self.combos.values(): c.set("")
+        self.combos["gender"].set("Masculino")
         self.membership_editor.clear()
         self.person_id = None
 

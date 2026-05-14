@@ -129,8 +129,11 @@ def _build_main_window():
             self.frames = {}
 
             # Instanciación de Frames (ahora los datos ya estarán en cache/memoria)
-            self.frames["add"] = AddPersonFrame(container, self.people_api, self.config_api)
             self.frames["search"] = SearchPersonFrame(container, self.people_api, self.config_api)
+            self.frames["add"] = AddPersonFrame(
+                container, self.people_api, self.config_api,
+                on_data_changed=lambda: self.frames["search"]._on_search()
+            )
             self.frames["modify"] = ModifyPersonFrame(
                 container, self.people_api, self.config_api,
                 on_data_changed=lambda: self.frames["search"]._on_search()

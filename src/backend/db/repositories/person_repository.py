@@ -495,47 +495,28 @@ def find_person_by_id(person_id: int) -> Optional[Dict]:
 def create_person(payload: Dict) -> int:
     """Insert a new person and optionally an address."""
     addr_id = None
-
     int_fields = {
-        "house_number",
-        "cdb",
-        "trusted_person_id",
-        "ministry_id",
-        "ministry_area_id",
-        "consolidation_id",
-        "future_ministry_area_id",
+        "house_number", "cdb", "trusted_person_id", "ministry_id",
+        "ministry_area_id", "consolidation_id", "future_ministry_area_id",
     }
 
-    # -----------------------------
-    # Address
-    # -----------------------------
+    # --- Address ---
     address_fields = ("street", "neighborhood", "house_number")
-
     addr_vals = {}
-
     for key in address_fields:
-        if key not in payload:
-            continue
-
-        value = _normalize_value(
-            payload.get(key),
-            to_int=(key in int_fields),
-        )
-
-        if value is not None:
-            addr_vals[key] = value
+        # CAMBIO: Si la clave está, la procesamos siempre
+        if key in payload:
+            value = _normalize_value(payload.get(key), to_int=(key in int_fields))
+            if value is not None:
+                addr_vals[key] = value
 
     if addr_vals:
         cols = ", ".join(addr_vals.keys())
         placeholders = ", ".join(["%s"] * len(addr_vals))
-
         sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
-
         addr_id = db.insert(sql, tuple(addr_vals.values()))
 
-    # -----------------------------
-    # Person
-    # -----------------------------
+    # --- Person ---
     cols = []
     vals = []
 
@@ -544,34 +525,20 @@ def create_person(payload: Dict) -> int:
         vals.append(addr_id)
 
     person_fields = (
-        "first_name",
-        "last_name",
-        "email",
-        "birthdate",
-        "gender",
-        "dni",
-        "phone_number",
-        "marital_status",
-        "social_security",
-        "baptized",
-        "cdb",
-        "trusted_person_id",
-        "ministry_id",
-        "ministry_area_id",
-        "consolidation_id",
-        "future_ministry_area_id",
+        "first_name", "last_name", "email", "birthdate", "gender",
+        "dni", "phone_number", "marital_status", "social_security",
+        "baptized", "cdb", "trusted_person_id", "ministry_id",
+        "ministry_area_id", "consolidation_id", "future_ministry_area_id",
     )
 
     for key in person_fields:
-        if key not in payload:
-            continue
-
-        value = _normalize_value(
-            payload.get(key),
-            to_int=(key in int_fields),
-        )
-
-        if value is not None:
+        if key in payload:
+            # Obtenemos el valor (puede ser None, "Masculino", etc.)
+            value = _normalize_value(payload.get(key), to_int=(key in int_fields))
+            
+            # CAMBIO CRÍTICO: 
+            # Agregamos la columna SIEMPRE que esté en el payload, 
+            # permitiendo que guarde None (NULL en SQL) si el valor es vacío.
             cols.append(key)
             vals.append(value)
 
@@ -580,7 +547,6 @@ def create_person(payload: Dict) -> int:
 
     col_sql = ", ".join(cols)
     placeholder_sql = ", ".join(["%s"] * len(vals))
-
     sql = f"INSERT INTO person ({col_sql}) VALUES ({placeholder_sql})"
 
     return db.insert(sql, tuple(vals))

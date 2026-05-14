@@ -20,6 +20,7 @@ class PersonCreate(BaseModel):
 
     first_name: str
     last_name: str
+    gender: Optional[str] = None
 
     email: Optional[str] = None
     birthdate: Optional[str] = None
@@ -46,6 +47,7 @@ class PersonUpdate(BaseModel):
 
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    gender: Optional[str] = None
 
     email: Optional[str] = None
     birthdate: Optional[str] = None
@@ -73,6 +75,7 @@ class PersonResponse(BaseModel):
     person_id: int
     first_name: str
     last_name: str
+    gender: Optional[str] = None
 
     email: Optional[str] = None
     dni: Optional[str] = None

@@ -19,12 +19,12 @@ class SearchPersonFrame(BaseFrame):
         
         # Columnas disponibles
         self._all_cols = (
-            "person_id", "first_name", "last_name", "dni","birthdate","age", "neighborhood", 
+            "person_id", "first_name", "last_name","gender", "dni","birthdate","age", "neighborhood", 
             "phone_number", "baptized", "cdb", "consolidation_id"
         )
         self._headers = {
             "person_id": "ID", "first_name": "Nombre", "last_name": "Apellido",
-            "dni": "DNI", "birthdate": "Fec. Nac.", "age": "Edad", "neighborhood": "Barrio", "phone_number": "Teléfono",
+            "gender": "Género", "dni": "DNI", "birthdate": "Fec. Nac.", "age": "Edad", "neighborhood": "Barrio", "phone_number": "Teléfono",
             "baptized": "Bautizado", "cdb": "CDB", "consolidation_id": "Consolidación"
         }
         
@@ -114,15 +114,38 @@ class SearchPersonFrame(BaseFrame):
             self.tree.insert("", "end", iid=str(p["person_id"]), values=values)
 
     def _get_formatted_value(self, p, col):
-        val = p.get(col) or (p.get("address", {}).get(col) if "address" in p else None)
+        """Extrae y formatea valores de la persona 'p' para la columna 'col'."""
+
+        if col == "age":
+            bday = p.get("birthdate")
+            if not bday: return ""
+            try:
+                bday_dt = datetime.strptime(bday, "%Y-%m-%d").date() if isinstance(bday, str) else bday
+                today = datetime.now().date()
+                age = today.year - bday_dt.year - ((today.month, today.day) < (bday_dt.month, bday_dt.day))
+                return f"{age} años"
+            except:
+                return ""
+        val = p.get(col)
+        if val is None and isinstance(p.get("address"), dict):
+            val = p.get("address").get(col)
+        if col == "gender":
+            return val if val else ""
+        if col == "baptized":
+            return "Sí" if val else "No"
+        if col == "birthdate" and val:
+            try:
+                d = datetime.strptime(str(val), "%Y-%m-%d")
+                return d.strftime("%d/%m/%Y")
+            except:
+                return val
         if col == "consolidation_id" and val:
             obj = self.drop_helper.find_consolidation_by_id(val)
             return obj["level"] if obj else f"ID: {val}"
         if col == "cdb" and val:
             obj = self.drop_helper.find_cdb_by_id(val)
             return f"CDB {obj['number']}" if obj else f"ID: {val}"
-        if col == "baptized": return "Sí" if val else "No"
-        return val if val is not None else ""
+        return str(val) if val is not None else ""
 
     def _on_tree_select(self, event=None):
         sel = self.tree.selection()

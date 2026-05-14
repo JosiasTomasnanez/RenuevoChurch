@@ -9,10 +9,11 @@ class AddPersonFrame(BaseFrame):
     BTN_COLOR = "#7A4A97"
     TEXT_DARK = "#5A5A5A"
     
-    def __init__(self, master, controller, config_service=None, open_modify_callback=None, **kwargs):
+    def __init__(self, master, controller, config_service=None, open_modify_callback=None,on_data_changed=None, **kwargs):
         super().__init__(master, **kwargs)
         self.controller = controller
         self.config_service = config_service
+        self._on_data_changed = on_data_changed
         self._open_modify_cb = open_modify_callback
         self.config(bg=self.BG_PRIMARY)
         
@@ -38,6 +39,7 @@ class AddPersonFrame(BaseFrame):
         fields = [
             ("first_name", "Nombre *"), ("last_name", "Apellido *"),
             ("email", "Correo"), ("birthdate", "Fecha de nacimiento"),
+            ("gender", "Género"),
             ("dni", "DNI"), ("phone_number", "Teléfono"),
             ("marital_status", "Estado civil"), ("social_security", "Seguro Social"),
             ("street", "Calle"), ("neighborhood", "Barrio"),
@@ -49,7 +51,7 @@ class AddPersonFrame(BaseFrame):
         for i, (key, label) in enumerate(fields):
             tk.Label(left, text=label, bg=self.BG_PRIMARY, fg=self.TEXT_DARK).grid(row=i, column=0, sticky="w", padx=6, pady=3)
             
-            if key in ["consolidation_id", "cdb", "baptized"]:
+            if key in ["consolidation_id", "cdb", "baptized", "gender"]:
                 combo = ttk.Combobox(left, width=37, state="readonly")
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
@@ -76,8 +78,10 @@ class AddPersonFrame(BaseFrame):
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
         
+        self.combos["gender"]["values"] = ["Masculino", "Femenino"] 
+
         self.combos["baptized"]["values"] = ["Sí", "No"]
-        self.combos["baptized"].set("No") # Valor por defecto
+        self.combos["baptized"].set("No") 
 
         tk.Button(left, text="Agregar persona", command=self._on_submit, bg=self.BTN_COLOR, fg="white").grid(row=len(fields), column=0, columnspan=2, pady=(12, 0))
 
@@ -91,21 +95,27 @@ class AddPersonFrame(BaseFrame):
         )
 
     def _on_submit(self):
+        # 1. Recolectar lo que hay en entries (nombres, fechas, etc)
         payload = {k: (v.get() or None) for k, v in self.entries.items()}
         
+        # 2. Asegurarnos de que Nombre y Apellido existan antes de seguir
         if not payload.get("first_name") or not payload.get("last_name"):
             messagebox.showerror("Error", "Nombre y Apellido son obligatorios")
             return
 
+        # 3. EXTRAER LOS COMBOS EXPLÍCITAMENTE
+        # Esto asegura que el valor del combo de género se sume al diccionario
+        payload["gender"] = self.combos["gender"].get() # <--- ¡CLAVE!
+        payload["baptized"] = self.combos["baptized"].get() == "Sí"
         payload["consolidation_id"] = self.drop_helper.get_consolidation_id(self.combos["consolidation_id"].get())
         payload["cdb"] = self.drop_helper.get_cdb_id(self.combos["cdb"].get())
-        payload["baptized"] = self.combos["baptized"].get() == "Sí"
+
+        # TIP PRO: Agregá este print para ver en tu terminal exactamente qué estás enviando
+        print(f"DEBUG: Payload enviado -> {payload}")
 
         try:
-            # 1. Crear a la persona
             person_id = self.controller.create_person(payload)
-            
-            # 2. Obtener las membresías desde el helper para guardarlas
+            # ... resto del código igual
             current_mems = self.membership_editor.memberships
             if current_mems:
                 db_mems = [{"ministry_id": m["ministry_id"], "area_id": m["area_id"]} for m in current_mems]
@@ -113,6 +123,8 @@ class AddPersonFrame(BaseFrame):
             
             messagebox.showinfo("OK", "Persona creada exitosamente")
             self._clear_form()
+            if self._on_data_changed:
+                self._on_data_changed()
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -120,6 +132,7 @@ class AddPersonFrame(BaseFrame):
         for e in self.entries.values(): e.delete(0, "end")
         for c in self.combos.values(): c.set("")
         self.combos["baptized"].set("No")
+        self.combos["gender"].set("Masculino")
         # Limpiar el helper
         self.membership_editor.clear()
 
