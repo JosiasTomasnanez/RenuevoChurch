@@ -20,6 +20,8 @@ def create_person(payload: PersonCreate):
     try:
         data = payload.model_dump(exclude_unset=True)
         memberships = data.pop("memberships", None)
+        # NOTA: Dejamos 'occupation_ids' dentro de 'data' porque el nuevo person_service
+        # se encarga de extraerlo (.pop) y guardarlo en la tabla intermedia de forma transparente.
 
         person_id = service.create_person(data)
 
@@ -31,6 +33,34 @@ def create_person(payload: PersonCreate):
         return person_id   # <- solo el número
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# -----------------------------------
+# Update person
+# -----------------------------------
+@router.put("/{person_id}")
+def update_person(person_id: int, payload: PersonUpdate):
+    try:
+        data = payload.model_dump(exclude_unset=True)
+        memberships = data.pop("memberships", None)
+        # Dejamos 'occupation_ids' si existe en el payload para que viaje al service
+
+        ok = service.update_person(person_id, data)
+
+        if not ok:
+            raise HTTPException(status_code=404, detail="Person not found")
+
+        if memberships is not None:
+            service.update_person_memberships(
+                person_id,
+                [m.model_dump() for m in memberships],
+            )
+
+        return {"status": "updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # -----------------------------------
 # Get all people
 # -----------------------------------
@@ -66,37 +96,10 @@ def get_person(person_id: int):
 
 
 # -----------------------------------
-# Update person
-# -----------------------------------
-@router.put("/{person_id}")
-def update_person(person_id: int, payload: PersonUpdate):
-
-    try:
-        data = payload.model_dump(exclude_unset=True)
-        memberships = data.pop("memberships", None)
-
-        ok = service.update_person(person_id, data)
-
-        if not ok:
-            raise HTTPException(status_code=404, detail="Person not found")
-
-        if memberships is not None:
-            service.update_person_memberships(
-                person_id,
-                [m.model_dump() for m in memberships],
-            )
-
-        return {"status": "updated"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# -----------------------------------
 # Delete person
 # -----------------------------------
 @router.delete("/{person_id}")
 def delete_person(person_id: int):
-
     ok = service.delete_person(person_id)
 
     if not ok:
@@ -110,8 +113,20 @@ def delete_person(person_id: int):
 # -----------------------------------
 @router.get("/by-ministry/{ministry_id}")
 def get_people_by_ministry(ministry_id: int):
-
     return service.get_people_by_ministry(ministry_id)
+
+
+# -----------------------------------
+# Get people by occupation
+# -----------------------------------
+@router.get("/by-occupation/{occupation_id}")
+def get_people_by_occupation(occupation_id: int):
+    try:
+        people = service.get_people_by_occupation(occupation_id)
+        # Convertimos los objetos del modelo Person a diccionarios
+        return [p.__dict__ for p in people]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # -----------------------------------
@@ -119,7 +134,6 @@ def get_people_by_ministry(ministry_id: int):
 # -----------------------------------
 @router.get("/{person_id}/memberships")
 def get_memberships(person_id: int):
-
     return service.get_memberships_for_person(person_id)
 
 
@@ -133,9 +147,6 @@ def update_memberships(
 ):
     logger.info(f"Updating memberships for person {person_id} with payload: {payload}")
     try:
-        # Be liberal in what we accept:
-        # - JSON array: [{"ministry_id": 1, "area_id": null}, ...]
-        # - JSON object: {"memberships": [...]} (some clients may wrap)
         memberships_raw = payload
         if isinstance(payload, dict) and "memberships" in payload:
             memberships_raw = payload.get("memberships")

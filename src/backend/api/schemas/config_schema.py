@@ -69,3 +69,19 @@ class CdbUpdate(BaseModel):
 class CdbResponse(BaseModel):
     cdb_id: int
     number: int
+
+# ================================
+# Occupations
+# ================================
+
+class OccupationCreate(BaseModel):
+    name: str
+
+
+class OccupationUpdate(BaseModel):
+    name: str
+
+
+class OccupationResponse(BaseModel):
+    occupation_id: int
+    name: str

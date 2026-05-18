@@ -667,11 +667,93 @@ def update_person(person_id: int, payload: Dict) -> bool:
 
     return True
 
+# =========================================================================
+# NUEVAS FUNCIONES PARA MANEJO DE OCUPACIONES MÚLTIPLES
+# =========================================================================
+
+def get_person_occupations(person_id: int) -> List[Dict]:
+    """Retorna todas las ocupaciones asignadas a una persona específica."""
+    if person_id is None:
+        return []
+        
+    sql = """
+    SELECT o.occupation_id, o.name
+    FROM occupation o
+    INNER JOIN person_occupation po ON o.occupation_id = po.occupation_id
+    WHERE po.person_id = %s
+    ORDER BY o.name ASC
+    """
+    rows = db.query_all(sql, (person_id,))
+    return [dict(r) for r in rows]
+
+
+def update_person_occupations(person_id: int, occupation_ids: List[int]) -> bool:
+    """Sincroniza de forma atómica las ocupaciones de una persona.
+    
+    Elimina las asignaciones previas e inyecta el nuevo listado de IDs.
+    """
+    if person_id is None:
+        return False
+        
+    # 1. Limpiar las relaciones existentes para evitar duplicados
+    db.execute("DELETE FROM person_occupation WHERE person_id = %s", (person_id,))
+    
+    # 2. Si se pasaron IDs nuevos, inyectarlos en lote
+    if occupation_ids:
+        # Preparamos la secuencia de tuplas: (person_id, occ_id)
+        seq_params = [(person_id, int(occ_id)) for occ_id in occupation_ids if occ_id is not None]
+        if seq_params:
+            db.executemany(
+                "INSERT INTO person_occupation (person_id, occupation_id) VALUES (%s, %s)",
+                seq_params
+            )
+            
+    return True
+
+
+def find_people_by_occupation(occupation_id: int) -> List[Dict]:
+    """Retorna todas las personas asociadas a una ocupación específica."""
+    if occupation_id is None:
+        return []
+
+    sql = """
+    SELECT p.*,
+           a.address_id AS addr_address_id, a.street AS addr_street,
+           a.neighborhood AS addr_neighborhood, a.house_number AS addr_house_number,
+           ma.area_id AS area_area_id, ma.ministry_id AS area_ministry_id, ma.area AS area_name,
+           m.ministry_id AS min_ministry_id, m.name AS min_name
+    FROM person p
+    INNER JOIN person_occupation po ON p.person_id = po.person_id
+    LEFT JOIN address a ON p.address_id = a.address_id
+    LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
+    LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
+    WHERE po.occupation_id = %s
+    """
+    rows = db.query_all(sql, (occupation_id,))
+    
+    # Reutilizamos el formateador iterativo que ya tenés en tus otros métodos
+    results = []
+    for r in rows:
+        row = dict(r)
+        # ... (aquí aplicamos la misma extracción exacta que ya usás en find_all_people) ...
+        # [Para simplificar la visualización del bloque de código del chat se asume tu mapeo estructural de llaves]
+        person_keys = {k: row[k] for k in row.keys() if not k.startswith("addr_") and not k.startswith("area_") and not k.startswith("min_")}
+        address_keys = {"address_id": row.get("addr_address_id"), "street": row.get("addr_street"), "neighborhood": row.get("addr_neighborhood"), "house_number": row.get("addr_house_number")} if row.get("addr_address_id") else None
+        area_keys = {"area_id": row.get("area_area_id"), "ministry_id": row.get("area_ministry_id"), "area": row.get("area_name")} if row.get("area_area_id") else None
+        ministry_keys = {"ministry_id": row.get("min_ministry_id"), "name": row.get("min_name")} if row.get("min_ministry_id") else None
+        
+        results.append({"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys})
+        
+    return results
+
 __all__ = [
     "find_people_by_neighborhood",
     "find_people_by_ministry",
     "find_people_by_name",
     "find_all_people",
+    "get_person_occupations",
+    "update_person_occupations",
+    "find_people_by_occupation",
     "delete_person",
     "find_person_by_id",
     "create_person",

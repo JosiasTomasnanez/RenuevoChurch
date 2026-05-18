@@ -354,7 +354,58 @@ def delete_membership_status(status_id):
         print(f"Error eliminando estado de membresía: {e}")
         return False
 
+# ============================================================================
+# Occupation Management (Catálogo Maestro)
+# ============================================================================
 
+def get_all_occupations() -> List[Dict]:
+    """Return all master occupations sorted alphabetically."""
+    sql = "SELECT occupation_id, name FROM occupation ORDER BY name ASC"
+    rows = db.query_all(sql)
+    return [{"occupation_id": r["occupation_id"], "name": r["name"]} for r in rows]
+
+
+def get_occupation_by_id(occupation_id: int) -> Optional[Dict]:
+    """Return a single master occupation by id."""
+    if occupation_id is None:
+        return None
+    sql = "SELECT occupation_id, name FROM occupation WHERE occupation_id = %s"
+    row = db.query_one(sql, (occupation_id,))
+    if row:
+        return {"occupation_id": row["occupation_id"], "name": row["name"]}
+    return None
+
+
+def create_occupation(name: str) -> int:
+    """Create a new occupation option in the configuration master."""
+    if not name or name.strip() == "":
+        raise ValueError("Occupation name cannot be empty")
+    sql = "INSERT INTO occupation (name) VALUES (%s)"
+    return db.insert(sql, (name.strip(),))
+
+
+def update_occupation(occupation_id: int, name: str) -> bool:
+    """Update an occupation name in the master table."""
+    if occupation_id is None or not name or name.strip() == "":
+        return False
+    sql = "UPDATE occupation SET name = %s WHERE occupation_id = %s"
+    db.execute(sql, (name.strip(), occupation_id))
+    return True
+
+
+def delete_occupation(occupation_id: int) -> bool:
+    """Delete an occupation option from the master table.
+    
+    Any mapping inside person_occupation will be removed via ON DELETE CASCADE.
+    """
+    if occupation_id is None:
+        return False
+    try:
+        db.execute("DELETE FROM occupation WHERE occupation_id = %s", (occupation_id,))
+        return True
+    except Exception as e:
+        print(f"Error eliminando ocupación: {e}")
+        return False
 
 __all__ = [
     "get_all_ministries",
@@ -383,5 +434,10 @@ __all__ = [
     "delete_marital_status",
     "get_membership_statuses",
     "create_membership_status",
-    "delete_membership_status"
+    "delete_membership_status",
+    "get_all_occupations",
+    "get_occupation_by_id",
+    "create_occupation",
+    "update_occupation",
+    "delete_occupation"
 ]

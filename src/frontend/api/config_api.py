@@ -139,3 +139,29 @@ class ConfigAPI:
     @staticmethod
     def delete_membership_status(status_id):
         return ApiClient.delete(f"/config/membership-statuses/{status_id}")
+    
+    
+    # =========================
+    # OCCUPATIONS 
+    # =========================
+
+    @staticmethod
+    def get_all_occupations():
+        res = ApiClient.get("/config/occupations")
+        return ConfigAPI._normalize(res)
+
+    @staticmethod
+    def get_occupation_by_id(occupation_id):
+        return ApiClient.get(f"/config/occupations/{occupation_id}")
+
+    @staticmethod
+    def create_occupation(name):
+        return ApiClient.post("/config/occupations", {"name": name})
+
+    @staticmethod
+    def update_occupation(occupation_id, name):
+        return ApiClient.put(f"/config/occupations/{occupation_id}", {"name": name})
+
+    @staticmethod
+    def delete_occupation(occupation_id):
+        return ApiClient.delete(f"/config/occupations/{occupation_id}")
