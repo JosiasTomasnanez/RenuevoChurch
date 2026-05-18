@@ -34,13 +34,13 @@ class SearchPersonFrame(BaseFrame):
             "baptized": "Bautizado", "cdb": "CDB", "consolidation_id": "Consolidación"
         }
         
-        _defaults = {"person_id", "first_name", "last_name", "dni", "neighborhood"}
+        _defaults = {"person_id", "first_name", "last_name", "dni", "neighborhood", "trusted_person_info"}
         self._col_vars = {c: tk.BooleanVar(value=(c in _defaults)) for c in self._all_cols}
         
         self._active_filters = {"neighborhood": None, "ministry": None,
                                 "cdb": None, "marital_status": None,
                                 "membership_status": None, "occupation": None,
-                                "age_range": None,
+                                "age_range": None, "baptized": None,
                                 "gender": None, "consolidation_id": None
                                 }
 
@@ -98,6 +98,7 @@ class SearchPersonFrame(BaseFrame):
         filt_menu.add_command(label="Ocupación / Oficio...", command=lambda: self._open_filter("occupation"))
         filt_menu.add_command(label="Rango de Edad...", command=lambda: self._open_filter("age_range"))
         filt_menu.add_command(label="Género...", command=lambda: self._open_filter("gender"))
+        filt_menu.add_command(label="Bautizado...", command=lambda: self._open_filter("baptized"))
         filt_menu.add_command(label="Consolidación...", command=lambda: self._open_filter("consolidation_id"))
         filt_menu.add_separator()
         filt_menu.add_command(label="Limpiar Filtros", command=self._clear_all_filters)
@@ -158,6 +159,13 @@ class SearchPersonFrame(BaseFrame):
         query = self.search_entry.get().strip()
         results = self.controller.search_people(query)
         filtered = self._apply_filters(results)
+
+        filtered.sort(
+            key=lambda p: (
+                str(p.get("last_name") or "").lower(), 
+                str(p.get("first_name") or "").lower()
+            )
+        )
 
         self.results_count_lbl.config(text=f"Resultados: {len(filtered)}")
 
@@ -268,6 +276,10 @@ class SearchPersonFrame(BaseFrame):
         if f["consolidation_id"]:
             res = [p for p in res if str(p.get("consolidation_id")) == str(f["consolidation_id"])]
         
+        if f["baptized"]:
+            is_baptized_target = (f["baptized"] == "Sí")
+            res = [p for p in res if bool(p.get("baptized")) == is_baptized_target]
+
         if f["occupation"]:
             try:
                 # Buscamos el ID correspondiente al nombre seleccionado en la lista global de ocupaciones
@@ -410,6 +422,9 @@ class SearchPersonFrame(BaseFrame):
         elif name == "ministry":
             self.drop_helper.refresh_all()
             options = [m["name"] for m in self.drop_helper._ministry_cache]
+
+        elif name == "baptized":
+            options = ["Sí", "No"]
 
         elif name == "gender":
             options = ["Masculino", "Femenino"]
