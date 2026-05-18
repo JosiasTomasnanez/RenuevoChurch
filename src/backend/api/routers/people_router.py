@@ -69,8 +69,8 @@ def get_person(person_id: int):
 # Update person
 # -----------------------------------
 @router.put("/{person_id}")
-def update_person(person_id: int, payload: dict):
-    
+def update_person(person_id: int, payload: PersonUpdate):
+
     try:
         data = payload.model_dump(exclude_unset=True)
         memberships = data.pop("memberships", None)
