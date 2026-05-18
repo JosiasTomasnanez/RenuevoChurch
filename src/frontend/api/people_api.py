@@ -45,3 +45,12 @@ class PeopleAPI:
             f"{PeopleAPI.BASE}/{person_id}/memberships",
             memberships
         )
+    @staticmethod
+    def get_people_by_occupation(occupation_id: int):
+        """Obtiene las personas asociadas a una ocupación específica."""
+        return ApiClient.get(f"{PeopleAPI.BASE}/by-occupation/{occupation_id}")
+
+    @staticmethod
+    def get_occupations(person_id):
+        """Obtiene las ocupaciones de una persona específica."""
+        return ApiClient.get(f"{PeopleAPI.BASE}/{person_id}/occupations")

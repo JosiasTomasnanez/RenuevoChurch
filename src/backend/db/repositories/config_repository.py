@@ -35,7 +35,7 @@ def get_ministry_by_id(ministry_id: int) -> Optional[Dict]:
     """Return a single ministry by id."""
     if ministry_id is None:
         return None
-    sql = "SELECT ministry_id, name FROM ministry WHERE ministry_id = ?"
+    sql = "SELECT ministry_id, name FROM ministry WHERE ministry_id = %s"
     row = db.query_one(sql, (ministry_id,))
     if row:
         return {"ministry_id": row["ministry_id"], "name": row["name"]}
@@ -53,7 +53,7 @@ def create_ministry(name: str) -> int:
     """
     if not name:
         raise ValueError("Ministry name cannot be empty")
-    sql = "INSERT INTO ministry (name) VALUES (?)"
+    sql = "INSERT INTO ministry (name) VALUES (%s)"
     return db.insert(sql, (name,))
 
 
@@ -69,7 +69,7 @@ def update_ministry(ministry_id: int, name: str) -> bool:
     """
     if ministry_id is None or not name:
         return False
-    sql = "UPDATE ministry SET name = ? WHERE ministry_id = ?"
+    sql = "UPDATE ministry SET name = %s WHERE ministry_id = %s"
     db.execute(sql, (name, ministry_id))
     return True
 
@@ -86,7 +86,7 @@ def delete_ministry(ministry_id: int) -> bool:
     if ministry_id is None:
         return False
     # Areas will be deleted via CASCADE
-    db.execute("DELETE FROM ministry WHERE ministry_id = ?", (ministry_id,))
+    db.execute("DELETE FROM ministry WHERE ministry_id = %s", (ministry_id,))
     return True
 
 
@@ -118,7 +118,7 @@ def get_areas_by_ministry(ministry_id: int) -> List[Dict]:
     """Return all areas for a given ministry."""
     if ministry_id is None:
         return []
-    sql = "SELECT area_id, ministry_id, area FROM ministry_area WHERE ministry_id = ? ORDER BY area"
+    sql = "SELECT area_id, ministry_id, area FROM ministry_area WHERE ministry_id = %s ORDER BY area"
     rows = db.query_all(sql, (ministry_id,))
     return [{"area_id": r["area_id"], "ministry_id": r["ministry_id"], "area": r["area"]} for r in rows]
 
@@ -127,7 +127,7 @@ def get_area_by_id(area_id: int) -> Optional[Dict]:
     """Return a single area by id."""
     if area_id is None:
         return None
-    sql = "SELECT area_id, ministry_id, area FROM ministry_area WHERE area_id = ?"
+    sql = "SELECT area_id, ministry_id, area FROM ministry_area WHERE area_id = %s"
     row = db.query_one(sql, (area_id,))
     if row:
         return {"area_id": row["area_id"], "ministry_id": row["ministry_id"], "area": row["area"]}
@@ -146,7 +146,7 @@ def create_area(ministry_id: int, area: str) -> int:
     """
     if not area:
         raise ValueError("Area name cannot be empty")
-    sql = "INSERT INTO ministry_area (ministry_id, area) VALUES (?, ?)"
+    sql = "INSERT INTO ministry_area (ministry_id, area) VALUES (%s, %s)"
     return db.insert(sql, (ministry_id, area))
 
 
@@ -162,7 +162,7 @@ def update_area(area_id: int, area: str) -> bool:
     """
     if area_id is None or not area:
         return False
-    sql = "UPDATE ministry_area SET area = ? WHERE area_id = ?"
+    sql = "UPDATE ministry_area SET area = %s WHERE area_id = %s"
     db.execute(sql, (area, area_id))
     return True
 
@@ -171,7 +171,7 @@ def delete_area(area_id: int) -> bool:
     """Delete a ministry area."""
     if area_id is None:
         return False
-    db.execute("DELETE FROM ministry_area WHERE area_id = ?", (area_id,))
+    db.execute("DELETE FROM ministry_area WHERE area_id = %s", (area_id,))
     return True
 
 
@@ -190,7 +190,7 @@ def get_consolidation_by_id(consolidation_id: int) -> Optional[Dict]:
     """Return a single consolidation level by id."""
     if consolidation_id is None:
         return None
-    sql = "SELECT consolidation_id, level FROM consolidation WHERE consolidation_id = ?"
+    sql = "SELECT consolidation_id, level FROM consolidation WHERE consolidation_id = %s"
     row = db.query_one(sql, (consolidation_id,))
     if row:
         return {"consolidation_id": row["consolidation_id"], "level": row["level"]}
@@ -208,7 +208,7 @@ def create_consolidation(level: str) -> int:
     """
     if not level:
         raise ValueError("Consolidation level cannot be empty")
-    sql = "INSERT INTO consolidation (level) VALUES (?)"
+    sql = "INSERT INTO consolidation (level) VALUES (%s)"
     return db.insert(sql, (level,))
 
 
@@ -224,7 +224,7 @@ def update_consolidation(consolidation_id: int, level: str) -> bool:
     """
     if consolidation_id is None or not level:
         return False
-    sql = "UPDATE consolidation SET level = ? WHERE consolidation_id = ?"
+    sql = "UPDATE consolidation SET level = %s WHERE consolidation_id = %s"
     db.execute(sql, (level, consolidation_id))
     return True
 
@@ -233,7 +233,7 @@ def delete_consolidation(consolidation_id: int) -> bool:
     """Delete a consolidation level."""
     if consolidation_id is None:
         return False
-    db.execute("DELETE FROM consolidation WHERE consolidation_id = ?", (consolidation_id,))
+    db.execute("DELETE FROM consolidation WHERE consolidation_id = %s", (consolidation_id,))
     return True
 
 
@@ -256,7 +256,7 @@ def get_cdb_by_id(cdb_id: int) -> Optional[Dict]:
     """Return a single CDB house by id."""
     if cdb_id is None:
         return None
-    sql = "SELECT cdb_id, number FROM cdb WHERE cdb_id = ?"
+    sql = "SELECT cdb_id, number FROM cdb WHERE cdb_id = %s"
     row = db.query_one(sql, (cdb_id,))
     if row:
         return {"cdb_id": row["cdb_id"], "number": row["number"]}
@@ -274,7 +274,7 @@ def create_cdb(number: int) -> int:
     """
     if number is None:
         raise ValueError("CDB number cannot be empty")
-    sql = "INSERT INTO cdb (number) VALUES (?)"
+    sql = "INSERT INTO cdb (number) VALUES (%s)"
     return db.insert(sql, (number,))
 
 
@@ -290,7 +290,7 @@ def update_cdb(cdb_id: int, number: int) -> bool:
     """
     if cdb_id is None or number is None:
         return False
-    sql = "UPDATE cdb SET number = ? WHERE cdb_id = ?"
+    sql = "UPDATE cdb SET number = %s WHERE cdb_id = %s"
     db.execute(sql, (number, cdb_id))
     return True
 
@@ -299,9 +299,113 @@ def delete_cdb(cdb_id: int) -> bool:
     """Delete a CDB house."""
     if cdb_id is None:
         return False
-    db.execute("DELETE FROM cdb WHERE cdb_id = ?", (cdb_id,))
+    db.execute("DELETE FROM cdb WHERE cdb_id = %s", (cdb_id,))
     return True
 
+
+
+
+#estado civil
+
+def get_marital_statuses():
+    return db.query_all("SELECT id, name FROM marital_status ORDER BY name ASC")
+
+def create_marital_status(name):
+    return db.insert("INSERT INTO marital_status (name) VALUES (%s)", (name,))
+
+def delete_marital_status(status_id):
+    if status_id is None:
+        return False
+    try:
+        db.execute("DELETE FROM marital_status WHERE id = %s", (status_id,))
+        return True
+    except Exception as e:
+        print(f"Error eliminando estado civil: {e}")
+        return False
+    
+# ============================================================================
+# Membership Status Management
+# ============================================================================
+def get_membership_statuses():
+    return db.query_all(
+        "SELECT id, name FROM membership_status ORDER BY name ASC"
+    )
+
+
+def create_membership_status(name):
+    return db.insert(
+        "INSERT INTO membership_status (name) VALUES (%s)",
+        (name,)
+    )
+
+
+def delete_membership_status(status_id):
+    if status_id is None:
+        return False
+
+    try:
+        db.execute(
+            "DELETE FROM membership_status WHERE id = %s",
+            (status_id,)
+        )
+        return True
+
+    except Exception as e:
+        print(f"Error eliminando estado de membresía: {e}")
+        return False
+
+# ============================================================================
+# Occupation Management (Catálogo Maestro)
+# ============================================================================
+
+def get_all_occupations() -> List[Dict]:
+    """Return all master occupations sorted alphabetically."""
+    sql = "SELECT occupation_id, name FROM occupation ORDER BY name ASC"
+    rows = db.query_all(sql)
+    return [{"occupation_id": r["occupation_id"], "name": r["name"]} for r in rows]
+
+
+def get_occupation_by_id(occupation_id: int) -> Optional[Dict]:
+    """Return a single master occupation by id."""
+    if occupation_id is None:
+        return None
+    sql = "SELECT occupation_id, name FROM occupation WHERE occupation_id = %s"
+    row = db.query_one(sql, (occupation_id,))
+    if row:
+        return {"occupation_id": row["occupation_id"], "name": row["name"]}
+    return None
+
+
+def create_occupation(name: str) -> int:
+    """Create a new occupation option in the configuration master."""
+    if not name or name.strip() == "":
+        raise ValueError("Occupation name cannot be empty")
+    sql = "INSERT INTO occupation (name) VALUES (%s)"
+    return db.insert(sql, (name.strip(),))
+
+
+def update_occupation(occupation_id: int, name: str) -> bool:
+    """Update an occupation name in the master table."""
+    if occupation_id is None or not name or name.strip() == "":
+        return False
+    sql = "UPDATE occupation SET name = %s WHERE occupation_id = %s"
+    db.execute(sql, (name.strip(), occupation_id))
+    return True
+
+
+def delete_occupation(occupation_id: int) -> bool:
+    """Delete an occupation option from the master table.
+    
+    Any mapping inside person_occupation will be removed via ON DELETE CASCADE.
+    """
+    if occupation_id is None:
+        return False
+    try:
+        db.execute("DELETE FROM occupation WHERE occupation_id = %s", (occupation_id,))
+        return True
+    except Exception as e:
+        print(f"Error eliminando ocupación: {e}")
+        return False
 
 __all__ = [
     "get_all_ministries",
@@ -325,4 +429,15 @@ __all__ = [
     "create_cdb",
     "update_cdb",
     "delete_cdb",
+    "get_marital_statuses",
+    "create_marital_status",
+    "delete_marital_status",
+    "get_membership_statuses",
+    "create_membership_status",
+    "delete_membership_status",
+    "get_all_occupations",
+    "get_occupation_by_id",
+    "create_occupation",
+    "update_occupation",
+    "delete_occupation"
 ]

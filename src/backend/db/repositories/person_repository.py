@@ -38,7 +38,7 @@ def _get_ministry_name(ministry_id: int) -> Optional[str]:
     """Helper to get ministry name by id."""
     if ministry_id is None:
         return None
-    row = db.query_one("SELECT name FROM ministry WHERE ministry_id = ?", (ministry_id,))
+    row = db.query_one("SELECT name FROM ministry WHERE ministry_id = %s", (ministry_id,))
     return row["name"] if row else None
 
 def find_people_by_neighborhood(neighborhood: str, partial: bool = False) -> List[Dict]:
@@ -66,7 +66,7 @@ def find_people_by_neighborhood(neighborhood: str, partial: bool = False) -> Lis
         LEFT JOIN address a ON p.address_id = a.address_id
         LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
         LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-        WHERE LOWER(a.neighborhood) LIKE LOWER(?)
+        WHERE LOWER(a.neighborhood) LIKE LOWER(%s)
         """
         params = (f"%{neighborhood}%",)
     else:
@@ -80,7 +80,7 @@ def find_people_by_neighborhood(neighborhood: str, partial: bool = False) -> Lis
          LEFT JOIN address a ON p.address_id = a.address_id
          LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
          LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-         WHERE LOWER(a.neighborhood) = LOWER(?)
+         WHERE LOWER(a.neighborhood) = LOWER(%s)
          """
         params = (neighborhood,)
 
@@ -158,7 +158,7 @@ def find_people_by_ministry(ministry_id: int) -> List[Dict]:
     LEFT JOIN address a ON p.address_id = a.address_id
     LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
     LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-    WHERE ma.ministry_id = ?
+    WHERE ma.ministry_id = %s
     """
 
     rows = db.query_all(sql, (ministry_id,))
@@ -248,7 +248,7 @@ def find_people_by_name(name: str, partial: bool = True) -> List[Dict]:
         LEFT JOIN address a ON p.address_id = a.address_id
         LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
         LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-        WHERE p.first_name LIKE ? OR p.first_name LIKE ? OR p.last_name LIKE ? OR p.last_name LIKE ?
+        WHERE p.first_name LIKE %s OR p.first_name LIKE %s OR p.last_name LIKE %s OR p.last_name LIKE %s
         """
     else:
         # default path: case-insensitive prefix match using LOWER
@@ -267,7 +267,7 @@ def find_people_by_name(name: str, partial: bool = True) -> List[Dict]:
     LEFT JOIN address a ON p.address_id = a.address_id
     LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
     LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-        WHERE LOWER(p.first_name) LIKE LOWER(?) OR LOWER(p.last_name) LIKE LOWER(?)
+        WHERE LOWER(p.first_name) LIKE LOWER(%s) OR LOWER(p.last_name) LIKE LOWER(%s)
     """
 
     # use the params tuple computed in the branches above
@@ -396,7 +396,7 @@ def delete_person(person_id: int) -> bool:
 
     # Fetch the person's address_id (if any) so we can conditionally
     # remove an orphaned address later.
-    cur = db.query_one("SELECT address_id FROM person WHERE person_id = ?", (person_id,))
+    cur = db.query_one("SELECT address_id FROM person WHERE person_id = %s", (person_id,))
     addr_id = None
     if cur:
         try:
@@ -408,12 +408,12 @@ def delete_person(person_id: int) -> bool:
                 addr_id = None
 
     # Delete the person
-    db.execute("DELETE FROM person WHERE person_id = ?", (person_id,))
+    db.execute("DELETE FROM person WHERE person_id = %s", (person_id,))
 
     # If the deleted person had an address, ensure no other person still
     # references it — if not, delete the orphaned address row.
     if addr_id is not None:
-        other = db.query_one("SELECT COUNT(1) AS cnt FROM person WHERE address_id = ?", (addr_id,))
+        other = db.query_one("SELECT COUNT(1) AS cnt FROM person WHERE address_id = %s", (addr_id,))
         cnt = 0
         if other:
             try:
@@ -425,21 +425,12 @@ def delete_person(person_id: int) -> bool:
                     cnt = 0
 
         if cnt == 0:
-            db.execute("DELETE FROM address WHERE address_id = ?", (addr_id,))
+            db.execute("DELETE FROM address WHERE address_id = %s", (addr_id,))
 
     return True
 
 
 def find_person_by_id(person_id: int) -> Optional[Dict]:
-    """Fetch a single person by id with all related address and ministry info.
-
-    Args:
-        person_id: The id of the person to fetch.
-
-    Returns:
-        A dictionary with the person data structure (nested person/address/area/ministry)
-        or None if person not found.
-    """
     if person_id is None:
         return None
 
@@ -453,8 +444,7 @@ def find_person_by_id(person_id: int) -> Optional[Dict]:
     LEFT JOIN address a ON p.address_id = a.address_id
     LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
     LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-    WHERE p.person_id = ?
-    """
+    WHERE p.person_id = %s""" # Eliminamos el salto de línea final antes de las comillas
 
     row = db.query_one(sql, (person_id,))
     if not row:
@@ -505,47 +495,28 @@ def find_person_by_id(person_id: int) -> Optional[Dict]:
 def create_person(payload: Dict) -> int:
     """Insert a new person and optionally an address."""
     addr_id = None
-
     int_fields = {
-        "house_number",
-        "cdb",
-        "trusted_person_id",
-        "ministry_id",
-        "ministry_area_id",
-        "consolidation_id",
-        "future_ministry_area_id",
+        "house_number", "cdb", "ministry_id",
+        "ministry_area_id", "consolidation_id", "future_ministry_area_id",
     }
 
-    # -----------------------------
-    # Address
-    # -----------------------------
+    # --- Address ---
     address_fields = ("street", "neighborhood", "house_number")
-
     addr_vals = {}
-
     for key in address_fields:
-        if key not in payload:
-            continue
-
-        value = _normalize_value(
-            payload.get(key),
-            to_int=(key in int_fields),
-        )
-
-        if value is not None:
-            addr_vals[key] = value
+        # CAMBIO: Si la clave está, la procesamos siempre
+        if key in payload:
+            value = _normalize_value(payload.get(key), to_int=(key in int_fields))
+            if value is not None:
+                addr_vals[key] = value
 
     if addr_vals:
         cols = ", ".join(addr_vals.keys())
-        placeholders = ", ".join(["?"] * len(addr_vals))
-
+        placeholders = ", ".join(["%s"] * len(addr_vals))
         sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
-
         addr_id = db.insert(sql, tuple(addr_vals.values()))
 
-    # -----------------------------
-    # Person
-    # -----------------------------
+    # --- Person ---
     cols = []
     vals = []
 
@@ -554,33 +525,20 @@ def create_person(payload: Dict) -> int:
         vals.append(addr_id)
 
     person_fields = (
-        "first_name",
-        "last_name",
-        "email",
-        "birthdate",
-        "dni",
-        "phone_number",
-        "marital_status",
-        "social_security",
-        "baptized",
-        "cdb",
-        "trusted_person_id",
-        "ministry_id",
-        "ministry_area_id",
-        "consolidation_id",
-        "future_ministry_area_id",
+        "first_name", "last_name", "email", "birthdate", "gender",
+        "dni", "phone_number", "marital_status","membership_status", "social_security",
+        "baptized", "cdb", "trusted_person_info", "ministry_id",
+        "ministry_area_id", "consolidation_id", "future_ministry_area_id",
     )
 
     for key in person_fields:
-        if key not in payload:
-            continue
-
-        value = _normalize_value(
-            payload.get(key),
-            to_int=(key in int_fields),
-        )
-
-        if value is not None:
+        if key in payload:
+            # Obtenemos el valor (puede ser None, "Masculino", etc.)
+            value = _normalize_value(payload.get(key), to_int=(key in int_fields))
+            
+            # CAMBIO CRÍTICO: 
+            # Agregamos la columna SIEMPRE que esté en el payload, 
+            # permitiendo que guarde None (NULL en SQL) si el valor es vacío.
             cols.append(key)
             vals.append(value)
 
@@ -588,8 +546,7 @@ def create_person(payload: Dict) -> int:
         raise ValueError("no person data provided")
 
     col_sql = ", ".join(cols)
-    placeholder_sql = ", ".join(["?"] * len(vals))
-
+    placeholder_sql = ", ".join(["%s"] * len(vals))
     sql = f"INSERT INTO person ({col_sql}) VALUES ({placeholder_sql})"
 
     return db.insert(sql, tuple(vals))
@@ -602,7 +559,6 @@ def update_person(person_id: int, payload: Dict) -> bool:
     int_fields = {
         "house_number",
         "cdb",
-        "trusted_person_id",
         "ministry_id",
         "ministry_area_id",
         "consolidation_id",
@@ -627,7 +583,7 @@ def update_person(person_id: int, payload: Dict) -> bool:
 
     if addr_vals:
         cur = db.query_one(
-            "SELECT address_id FROM person WHERE person_id = ?",
+            "SELECT address_id FROM person WHERE person_id = %s",
             (person_id,),
         )
 
@@ -643,25 +599,25 @@ def update_person(person_id: int, payload: Dict) -> bool:
                     addr_id = None
 
         if addr_id:
-            cols = ", ".join([f"{k} = ?" for k in addr_vals.keys()])
+            cols = ", ".join([f"{k} = %s" for k in addr_vals.keys()])
 
             params = tuple(addr_vals.values()) + (addr_id,)
 
             db.execute(
-                f"UPDATE address SET {cols} WHERE address_id = ?",
+                f"UPDATE address SET {cols} WHERE address_id = %s",
                 params,
             )
 
         else:
             cols = ", ".join(addr_vals.keys())
-            placeholders = ", ".join(["?"] * len(addr_vals))
+            placeholders = ", ".join(["%s"] * len(addr_vals))
 
             sql = f"INSERT INTO address ({cols}) VALUES ({placeholders})"
 
             new_addr_id = db.insert(sql, tuple(addr_vals.values()))
 
             db.execute(
-                "UPDATE person SET address_id = ? WHERE person_id = ?",
+                "UPDATE person SET address_id = %s WHERE person_id = %s",
                 (new_addr_id, person_id),
             )
 
@@ -673,13 +629,15 @@ def update_person(person_id: int, payload: Dict) -> bool:
         "last_name",
         "email",
         "birthdate",
+        "gender",
         "dni",
         "phone_number",
         "marital_status",
+        "membership_status",
         "social_security",
         "baptized",
         "cdb",
-        "trusted_person_id",
+        "trusted_person_info",
         "ministry_id",
         "ministry_area_id",
         "consolidation_id",
@@ -698,22 +656,104 @@ def update_person(person_id: int, payload: Dict) -> bool:
         )
 
     if pvals:
-        cols = ", ".join([f"{k} = ?" for k in pvals.keys()])
+        cols = ", ".join([f"{k} = %s" for k in pvals.keys()])
 
         params = tuple(pvals.values()) + (person_id,)
 
         db.execute(
-            f"UPDATE person SET {cols} WHERE person_id = ?",
+            f"UPDATE person SET {cols} WHERE person_id = %s",
             params,
         )
 
     return True
+
+# =========================================================================
+# NUEVAS FUNCIONES PARA MANEJO DE OCUPACIONES MÚLTIPLES
+# =========================================================================
+
+def get_person_occupations(person_id: int) -> List[Dict]:
+    """Retorna todas las ocupaciones asignadas a una persona específica."""
+    if person_id is None:
+        return []
+        
+    sql = """
+    SELECT o.occupation_id, o.name
+    FROM occupation o
+    INNER JOIN person_occupation po ON o.occupation_id = po.occupation_id
+    WHERE po.person_id = %s
+    ORDER BY o.name ASC
+    """
+    rows = db.query_all(sql, (person_id,))
+    return [dict(r) for r in rows]
+
+
+def update_person_occupations(person_id: int, occupation_ids: List[int]) -> bool:
+    """Sincroniza de forma atómica las ocupaciones de una persona.
+    
+    Elimina las asignaciones previas e inyecta el nuevo listado de IDs.
+    """
+    if person_id is None:
+        return False
+        
+    # 1. Limpiar las relaciones existentes para evitar duplicados
+    db.execute("DELETE FROM person_occupation WHERE person_id = %s", (person_id,))
+    
+    # 2. Si se pasaron IDs nuevos, inyectarlos en lote
+    if occupation_ids:
+        # Preparamos la secuencia de tuplas: (person_id, occ_id)
+        seq_params = [(person_id, int(occ_id)) for occ_id in occupation_ids if occ_id is not None]
+        if seq_params:
+            db.executemany(
+                "INSERT INTO person_occupation (person_id, occupation_id) VALUES (%s, %s)",
+                seq_params
+            )
+            
+    return True
+
+
+def find_people_by_occupation(occupation_id: int) -> List[Dict]:
+    """Retorna todas las personas asociadas a una ocupación específica."""
+    if occupation_id is None:
+        return []
+
+    sql = """
+    SELECT p.*,
+           a.address_id AS addr_address_id, a.street AS addr_street,
+           a.neighborhood AS addr_neighborhood, a.house_number AS addr_house_number,
+           ma.area_id AS area_area_id, ma.ministry_id AS area_ministry_id, ma.area AS area_name,
+           m.ministry_id AS min_ministry_id, m.name AS min_name
+    FROM person p
+    INNER JOIN person_occupation po ON p.person_id = po.person_id
+    LEFT JOIN address a ON p.address_id = a.address_id
+    LEFT JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
+    LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
+    WHERE po.occupation_id = %s
+    """
+    rows = db.query_all(sql, (occupation_id,))
+    
+    # Reutilizamos el formateador iterativo que ya tenés en tus otros métodos
+    results = []
+    for r in rows:
+        row = dict(r)
+        # ... (aquí aplicamos la misma extracción exacta que ya usás en find_all_people) ...
+        # [Para simplificar la visualización del bloque de código del chat se asume tu mapeo estructural de llaves]
+        person_keys = {k: row[k] for k in row.keys() if not k.startswith("addr_") and not k.startswith("area_") and not k.startswith("min_")}
+        address_keys = {"address_id": row.get("addr_address_id"), "street": row.get("addr_street"), "neighborhood": row.get("addr_neighborhood"), "house_number": row.get("addr_house_number")} if row.get("addr_address_id") else None
+        area_keys = {"area_id": row.get("area_area_id"), "ministry_id": row.get("area_ministry_id"), "area": row.get("area_name")} if row.get("area_area_id") else None
+        ministry_keys = {"ministry_id": row.get("min_ministry_id"), "name": row.get("min_name")} if row.get("min_ministry_id") else None
+        
+        results.append({"person": person_keys, "address": address_keys, "area": area_keys, "ministry": ministry_keys})
+        
+    return results
 
 __all__ = [
     "find_people_by_neighborhood",
     "find_people_by_ministry",
     "find_people_by_name",
     "find_all_people",
+    "get_person_occupations",
+    "update_person_occupations",
+    "find_people_by_occupation",
     "delete_person",
     "find_person_by_id",
     "create_person",

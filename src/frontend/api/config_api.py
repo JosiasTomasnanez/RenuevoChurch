@@ -105,3 +105,63 @@ class ConfigAPI:
     @staticmethod
     def get_cdb_by_id(cdb_id):
         return ApiClient.get(f"/config/cdb/{cdb_id}")
+
+    # =========================
+    # MARITAL STATUS
+    # =========================
+
+    @staticmethod
+    def get_marital_statuses():
+        res = ApiClient.get("/config/marital-statuses")
+        return ConfigAPI._normalize(res)
+
+    @staticmethod
+    def create_marital_status(name):
+        return ApiClient.post("/config/marital-statuses", {"name": name})
+
+    @staticmethod
+    def delete_marital_status(status_id):
+        return ApiClient.delete(f"/config/marital-statuses/{status_id}")
+    
+    # =========================
+    # MEMBERSHIP STATUS
+    # =========================
+
+    @staticmethod
+    def get_membership_statuses():
+        res = ApiClient.get("/config/membership-statuses")
+        return ConfigAPI._normalize(res)
+
+    @staticmethod
+    def create_membership_status(name):
+        return ApiClient.post("/config/membership-statuses", {"name": name})
+
+    @staticmethod
+    def delete_membership_status(status_id):
+        return ApiClient.delete(f"/config/membership-statuses/{status_id}")
+    
+    
+    # =========================
+    # OCCUPATIONS 
+    # =========================
+
+    @staticmethod
+    def get_all_occupations():
+        res = ApiClient.get("/config/occupations")
+        return ConfigAPI._normalize(res)
+
+    @staticmethod
+    def get_occupation_by_id(occupation_id):
+        return ApiClient.get(f"/config/occupations/{occupation_id}")
+
+    @staticmethod
+    def create_occupation(name):
+        return ApiClient.post("/config/occupations", {"name": name})
+
+    @staticmethod
+    def update_occupation(occupation_id, name):
+        return ApiClient.put(f"/config/occupations/{occupation_id}", {"name": name})
+
+    @staticmethod
+    def delete_occupation(occupation_id):
+        return ApiClient.delete(f"/config/occupations/{occupation_id}")

@@ -63,7 +63,7 @@ class Database:
     def _translate_sql(self, sql: str) -> str:
         if self._is_sqlite:
             return sql
-        return sql.replace("?", "%s")
+        return sql.replace("%s", "%s")
 
     @contextmanager
     def get_connection(self) -> Iterator[Any]:
@@ -175,6 +175,7 @@ class Database:
     def _apply_migrations(self) -> None:
         """Apply any pending database migrations."""
         if self._is_sqlite:
+            # --- SQLite: Migraciones de la tabla 'person' ---
             try:
                 with self.get_connection() as conn:
                     cursor = conn.execute("PRAGMA table_info(person)")
@@ -189,77 +190,43 @@ class Database:
                             ON DELETE SET NULL
                             """
                         )
+                    
+                    if "trusted_person_info" not in columns:
+                        conn.execute("ALTER TABLE person ADD COLUMN trusted_person_info TEXT")
+                        # Limpiamos los ceros históricos si existían para que no ensucien la interfaz
+                        conn.execute("UPDATE person SET trusted_person_info = NULL WHERE trusted_person_info = '0'")
             except Exception:
                 pass
 
+            # --- SQLite: Migraciones de la tabla 'person_ministry' ---
             try:
                 with self.get_connection() as conn:
                     conn.execute(
                         """
                         CREATE TABLE IF NOT EXISTS person_ministry (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
                             person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
                             ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
                             area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
-                            is_primary BOOLEAN DEFAULT 0,
-                            PRIMARY KEY (person_id, ministry_id, area_id)
+                            is_primary BOOLEAN DEFAULT 0
                         )
                         """
                     )
 
-                    conn.execute(
-                        """
-                        INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
-                        SELECT
-                            p.person_id,
-                            ma.ministry_id,
-                            p.ministry_area_id,
-                            1
-                        FROM person p
-                        JOIN ministry_area ma ON p.ministry_area_id = ma.area_id
-                        LEFT JOIN person_ministry pm
-                            ON pm.person_id = p.person_id
-                           AND pm.ministry_id = ma.ministry_id
-                           AND (pm.area_id = p.ministry_area_id OR (pm.area_id IS NULL AND p.ministry_area_id IS NULL))
-                        WHERE p.ministry_area_id IS NOT NULL
-                          AND pm.person_id IS NULL
-                        """
-                    )
-
-                    conn.execute(
-                        """
-                        INSERT INTO person_ministry (person_id, ministry_id, area_id, is_primary)
-                        SELECT
-                            p.person_id,
-                            p.ministry_id,
-                            NULL,
-                            CASE
-                                WHEN NOT EXISTS (
-                                    SELECT 1
-                                    FROM person_ministry pm2
-                                    WHERE pm2.person_id = p.person_id
-                                      AND pm2.is_primary = 1
-                                )
-                                THEN 1
-                                ELSE 0
-                            END AS is_primary
-                        FROM person p
-                        LEFT JOIN person_ministry pm
-                            ON pm.person_id = p.person_id
-                           AND pm.ministry_id = p.ministry_id
-                           AND pm.area_id IS NULL
-                        WHERE p.ministry_id IS NOT NULL
-                          AND pm.person_id IS NULL
-                        """
-                    )
+                    cursor = conn.execute("PRAGMA table_info(person_ministry)")
+                    columns = {row[1] for row in cursor.fetchall()}
+                    if "id" not in columns:
+                        conn.execute("ALTER TABLE person_ministry ADD COLUMN id INTEGER PRIMARY KEY AUTOINCREMENT")
             except Exception:
                 pass
 
             return
 
-        # PostgreSQL migrations
+        # --- PostgreSQL migrations ---
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cur:
+                    # Verificación de 'ministry_id'
                     cur.execute(
                         """
                         SELECT column_name
@@ -276,6 +243,37 @@ class Database:
                             """
                         )
 
+                    # Verificación de 'trusted_person_info'
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person'
+                          AND column_name = 'trusted_person_info'
+                        """
+                    )
+                    if cur.fetchone() is None:
+                        cur.execute("ALTER TABLE person ADD COLUMN trusted_person_info TEXT")
+                        cur.execute("UPDATE person SET trusted_person_info = NULL WHERE trusted_person_info = '0'")
+
+                    # Check if person_ministry table needs migration
+                    try:
+                        cur.execute("ALTER TABLE person_ministry DROP CONSTRAINT IF EXISTS person_ministry_pkey")
+                    except Exception:
+                        pass
+
+                    # Add id column if not exists
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person_ministry'
+                          AND column_name = 'id'
+                        """
+                    )
+                    if cur.fetchone() is None:
+                        cur.execute("ALTER TABLE person_ministry ADD COLUMN id SERIAL PRIMARY KEY")
+
                     cur.execute(
                         """
                         CREATE TABLE IF NOT EXISTS person_ministry (
@@ -287,15 +285,42 @@ class Database:
                         )
                         """
                     )
+                                        # membership_status
                     cur.execute(
                         """
-                        CREATE UNIQUE INDEX IF NOT EXISTS person_ministry_unique_idx
-                        ON person_ministry (person_id, ministry_id, COALESCE(area_id, 0))
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person'
+                        AND column_name = 'membership_status'
                         """
                     )
+
+                    if cur.fetchone() is None:
+                        cur.execute(
+                            "ALTER TABLE person ADD COLUMN membership_status TEXT"
+                        )
+
+                    # membership_status_id
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person'
+                        AND column_name = 'membership_status_id'
+                        """
+                    )
+
+                    if cur.fetchone() is None:
+                        cur.execute(
+                            """
+                            ALTER TABLE person
+                            ADD COLUMN membership_status_id INTEGER
+                            REFERENCES membership_status(id)
+                            ON DELETE SET NULL
+                            """
+                        )
         except Exception:
             pass
-
 
 def _get_schema_statements(backend: str) -> List[str]:
     """Return the CREATE TABLE statements for the application schema."""
@@ -304,6 +329,20 @@ def _get_schema_statements(backend: str) -> List[str]:
     boolean_default = "BOOLEAN DEFAULT 0" if is_sqlite else "BOOLEAN DEFAULT FALSE"
 
     return [
+        f"""
+        CREATE TABLE IF NOT EXISTS marital_status (
+            id {pk},
+            name TEXT NOT NULL UNIQUE
+        )
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS membership_status (
+            id {pk},
+            name TEXT NOT NULL UNIQUE
+        )
+        """,
+
+        
         # Consolidation levels
         f"""
         CREATE TABLE IF NOT EXISTS consolidation (
@@ -316,7 +355,7 @@ def _get_schema_statements(backend: str) -> List[str]:
         f"""
         CREATE TABLE IF NOT EXISTS cdb (
             cdb_id {pk},
-            number INTEGER NOT NULL UNIQUE
+            number TEXT NOT NULL UNIQUE
         )
         """,
 
@@ -360,8 +399,9 @@ def _get_schema_statements(backend: str) -> List[str]:
         CREATE TABLE IF NOT EXISTS person (
             person_id {pk},
             address_id INTEGER REFERENCES address(address_id) ON DELETE SET NULL,
-            trusted_person_id INTEGER REFERENCES person(person_id) ON DELETE SET NULL,
+            trusted_person_info TEXT,
             ministry_area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
+            membership_status_id INTEGER REFERENCES membership_status(id) ON DELETE SET NULL,
             consolidation_id INTEGER REFERENCES consolidation(consolidation_id) ON DELETE SET NULL,
             future_ministry_area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
             first_name TEXT,
@@ -382,12 +422,11 @@ def _get_schema_statements(backend: str) -> List[str]:
         # Many-to-many between persons and ministries (optionally via areas)
         f"""
         CREATE TABLE IF NOT EXISTS person_ministry (
-            {'id SERIAL PRIMARY KEY,' if not is_sqlite else ''}
+            id {pk},
             person_id INTEGER NOT NULL REFERENCES person(person_id) ON DELETE CASCADE,
             ministry_id INTEGER NOT NULL REFERENCES ministry(ministry_id) ON DELETE CASCADE,
             area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
             is_primary {boolean_default}
-            {', PRIMARY KEY (person_id, ministry_id, area_id)' if is_sqlite else ''}
         )
         """,
 

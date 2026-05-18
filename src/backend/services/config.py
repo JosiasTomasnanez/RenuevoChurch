@@ -94,6 +94,49 @@ class ConfigService:
     def delete_cdb(self, cdb_id: int) -> bool:
         """Delete a CDB house."""
         return repo.delete_cdb(cdb_id)
+    
+    def get_marital_statuses(self) -> List[Dict]:
+        """Get all marital status options."""
+        return repo.get_marital_statuses()
 
+    def create_marital_status(self, name: str) -> int:
+        """Create a new marital status option."""
+        return repo.create_marital_status(name)
+
+    def delete_marital_status(self, status_id: int) -> bool:
+        """Delete a marital status option."""
+        return repo.delete_marital_status(status_id)
+    
+    def get_membership_statuses(self) -> List[Dict]:
+        """Get all membership status options."""
+        return repo.get_membership_statuses()
+
+    def create_membership_status(self, name: str) -> int:
+        """Create a new membership status option."""
+        return repo.create_membership_status(name)
+
+    def delete_membership_status(self, status_id: int) -> bool:
+        """Delete a membership status option."""
+        return repo.delete_membership_status(status_id)
+    # Occupation management (Catálogo Maestro)
+    def get_all_occupations(self) -> List[Dict]:
+        """Get all master occupations."""
+        return repo.get_all_occupations()
+
+    def get_occupation_by_id(self, occupation_id: int) -> Optional[Dict]:
+        """Get a single master occupation by id."""
+        return repo.get_occupation_by_id(occupation_id)
+
+    def create_occupation(self, name: str) -> int:
+        """Create a new occupation option in the master catalog."""
+        return repo.create_occupation(name)
+
+    def update_occupation(self, occupation_id: int, name: str) -> bool:
+        """Update an occupation name in the master table."""
+        return repo.update_occupation(occupation_id, name)
+
+    def delete_occupation(self, occupation_id: int) -> bool:
+        """Delete an occupation option from the master table."""
+        return repo.delete_occupation(occupation_id)
 
 __all__ = ["ConfigService"]

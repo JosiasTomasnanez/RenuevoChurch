@@ -31,7 +31,7 @@ def get_area_and_ministry(area_id: int) -> Optional[Dict]:
            m.ministry_id AS min_id, m.name AS ministry_name
     FROM ministry_area ma
     LEFT JOIN ministry m ON ma.ministry_id = m.ministry_id
-    WHERE ma.area_id = ?
+    WHERE ma.area_id = %s
     """
 
     row = db.query_one(sql, (area_id,))
