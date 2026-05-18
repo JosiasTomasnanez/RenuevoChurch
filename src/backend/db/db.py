@@ -355,7 +355,7 @@ def _get_schema_statements(backend: str) -> List[str]:
         f"""
         CREATE TABLE IF NOT EXISTS cdb (
             cdb_id {pk},
-            number INTEGER NOT NULL UNIQUE
+            number TEXT NOT NULL UNIQUE
         )
         """,
 
