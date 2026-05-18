@@ -59,16 +59,16 @@ class ConsolidationResponse(BaseModel):
 # ================================
 
 class CdbCreate(BaseModel):
-    number: int
+    number: str
 
 
 class CdbUpdate(BaseModel):
-    number: int
+    number: str
 
 
 class CdbResponse(BaseModel):
     cdb_id: int
-    number: int
+    number: str
 
 # ================================
 # Occupations

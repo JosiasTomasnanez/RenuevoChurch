@@ -1,6 +1,7 @@
 from src.frontend.views._base import BaseFrame, tk, ttk
 from src.frontend.helpers.config_dropdown_helper import ConfigDropdownHelper
 from datetime import datetime
+from tkinter import messagebox
 
 class SearchPersonFrame(BaseFrame):
     BG_PRIMARY = "#F0E6F6"
@@ -36,7 +37,12 @@ class SearchPersonFrame(BaseFrame):
         _defaults = {"person_id", "first_name", "last_name", "dni", "neighborhood"}
         self._col_vars = {c: tk.BooleanVar(value=(c in _defaults)) for c in self._all_cols}
         
-        self._active_filters = {"neighborhood": None, "ministry": None, "cdb": None, "marital_status": None, "membership_status": None}
+        self._active_filters = {"neighborhood": None, "ministry": None,
+                                "cdb": None, "marital_status": None,
+                                "membership_status": None, "occupation": None,
+                                "age_range": None,
+                                "gender": None, "consolidation_id": None
+                                }
 
         self._build()
 
@@ -65,7 +71,16 @@ class SearchPersonFrame(BaseFrame):
         # --- BOTONES DERECHA ---
         r_frame = tk.Frame(top, bg=self.BG_PRIMARY)
         r_frame.pack(side="right")
-        
+
+        self.results_count_lbl = tk.Label(
+            r_frame, 
+            text="Resultados: 0", 
+            bg=self.BG_PRIMARY, 
+            fg=self.TEXT_DARK, 
+            font=("Arial", 9, "bold")
+        )
+        self.results_count_lbl.pack(side="left", padx=(0, 15))
+
         col_mb = tk.Menubutton(r_frame, text="Columnas ▾", relief="raised", bg=self.BTN_COLOR, fg="white")
         col_menu = tk.Menu(col_mb, tearoff=False)
         for c in self._all_cols:
@@ -80,6 +95,10 @@ class SearchPersonFrame(BaseFrame):
         filt_menu.add_command(label="Estado Civil...", command=lambda: self._open_filter("marital_status"))
         filt_menu.add_command(label="Estado de Membresía...", command=lambda: self._open_filter("membership_status"))
         filt_menu.add_command(label="Barrio...", command=lambda: self._open_filter("neighborhood"))
+        filt_menu.add_command(label="Ocupación / Oficio...", command=lambda: self._open_filter("occupation"))
+        filt_menu.add_command(label="Rango de Edad...", command=lambda: self._open_filter("age_range"))
+        filt_menu.add_command(label="Género...", command=lambda: self._open_filter("gender"))
+        filt_menu.add_command(label="Consolidación...", command=lambda: self._open_filter("consolidation_id"))
         filt_menu.add_separator()
         filt_menu.add_command(label="Limpiar Filtros", command=self._clear_all_filters)
         filt_mb.config(menu=filt_menu)
@@ -139,6 +158,8 @@ class SearchPersonFrame(BaseFrame):
         query = self.search_entry.get().strip()
         results = self.controller.search_people(query)
         filtered = self._apply_filters(results)
+
+        self.results_count_lbl.config(text=f"Resultados: {len(filtered)}")
 
         self.tree.delete(*self.tree.get_children())
         visible_cols = [c for c in self._all_cols if self._col_vars[c].get()]
@@ -244,6 +265,33 @@ class SearchPersonFrame(BaseFrame):
         if f["neighborhood"]:
             res = [p for p in res if isinstance(p.get("address"), dict) and p["address"].get("neighborhood") == f["neighborhood"]]
         
+        if f["consolidation_id"]:
+            res = [p for p in res if str(p.get("consolidation_id")) == str(f["consolidation_id"])]
+        
+        if f["occupation"]:
+            try:
+                # Buscamos el ID correspondiente al nombre seleccionado en la lista global de ocupaciones
+                all_occs = self.config_service.get_all_occupations()
+                occ_obj = next((o for o in all_occs if o.get("name") == f["occupation"]), None)
+                occ_id = occ_obj.get("occupation_id") or occ_obj.get("id") if occ_obj else None
+                
+                if occ_id:
+                    # Usamos el endpoint que reparamos anteriormente
+                    people_in_occ = self.controller.get_people_by_occupation(occ_id)
+                    allowed_occ_ids = {p.get("person_id") or p.get("id") for p in people_in_occ}
+                    res = [p for p in res if p["person_id"] in allowed_occ_ids]
+            except Exception as e:
+                print(f"Error al aplicar filtro de ocupación: {e}")
+                
+        if f["gender"]:
+            g_filter = f["gender"].lower()
+            if g_filter in ("masculino", "varón", "hombre", "m"):
+                res = [p for p in res if str(p.get("gender")).lower() in ("masculino", "varón", "hombre", "m")]
+            elif g_filter in ("femenino", "mujer", "f"):
+                res = [p for p in res if str(p.get("gender")).lower() in ("femenino", "mujer", "f")]
+            else:
+                res = [p for p in res if str(p.get("gender")).lower() == g_filter]
+
         if f["cdb"]:
             res = [p for p in res if str(p.get("cdb")) == str(f["cdb"])]
             
@@ -256,6 +304,29 @@ class SearchPersonFrame(BaseFrame):
                     res = [p for p in res if p["person_id"] in allowed_ids]
             except:
                 pass
+        
+        if f["age_range"]:
+            min_age, max_age = f["age_range"]
+            valid_people = []
+            for p in res:
+                bday = p.get("birthdate")
+                if not bday:
+                    continue
+                try:
+                    if isinstance(bday, str):
+                        bday_dt = datetime.strptime(bday, "%Y-%m-%d").date()
+                    else:
+                        bday_dt = bday
+                    
+                    today = datetime.now().date()
+                    age = today.year - bday_dt.year - ((today.month, today.day) < (bday_dt.month, bday_dt.day))
+                    
+                    if min_age <= age <= max_age:
+                        valid_people.append(p)
+                except:
+                    continue
+            res = valid_people
+
         if f["marital_status"]:
             res = [p for p in res if p.get("marital_status") == f["marital_status"]]
         
@@ -280,6 +351,44 @@ class SearchPersonFrame(BaseFrame):
         """Popup de filtro blindado contra NoneTypes."""
         win = tk.Toplevel(self)
         win.title(f"Filtrar por {name}")
+
+        if name == "age_range":
+            win.title("Filtrar por Rango de Edad")
+            win.geometry("280x200")
+            win.resizable(False, False)
+
+            # Contenedor para centrar elementos
+            content_frame = tk.Frame(win, bg=self.BG_PRIMARY)
+            content_frame.pack(expand=True, fill="both", padx=20, pady=20)
+
+            tk.Label(content_frame, text="Edad Mínima:", bg=self.BG_PRIMARY, fg=self.TEXT_DARK).grid(row=0, column=0, sticky="w", pady=10)
+            entry_min = tk.Entry(content_frame, bg=self.BG_INPUT, fg=self.TEXT_DARK, width=8, relief="solid", bd=1)
+            entry_min.insert(0, "0")
+            entry_min.grid(row=0, column=1, padx=10, pady=10)
+
+            tk.Label(content_frame, text="Edad Máxima:", bg=self.BG_PRIMARY, fg=self.TEXT_DARK).grid(row=1, column=0, sticky="w", pady=10)
+            entry_max = tk.Entry(content_frame, bg=self.BG_INPUT, fg=self.TEXT_DARK, width=8, relief="solid", bd=1)
+            entry_max.insert(0, "100")
+            entry_max.grid(row=1, column=1, padx=10, pady=10)
+
+            def apply_age():
+                try:
+                    val_min = int(entry_min.get().strip())
+                    val_max = int(entry_max.get().strip())
+                    if val_min > val_max:
+                        messagebox.showwarning("Atención", "La edad mínima no puede ser mayor que la máxima.")
+                        return
+                    
+                    self._active_filters["age_range"] = (val_min, val_max)
+                    self.filter_info_lbl.config(text=f"Filtro: {val_min} a {val_max} años")
+                    self._on_search()
+                    win.destroy()
+                except ValueError:
+                    messagebox.showerror("Error", "Por favor ingrese números enteros válidos.")
+
+            tk.Button(win, text="Aplicar Filtro", command=apply_age, bg=self.BTN_COLOR, fg="white", width=15).pack(pady=(0, 15))
+            return
+
         win.geometry("300x400")
         win.config(bg=self.BG_PRIMARY)
         
@@ -301,7 +410,22 @@ class SearchPersonFrame(BaseFrame):
         elif name == "ministry":
             self.drop_helper.refresh_all()
             options = [m["name"] for m in self.drop_helper._ministry_cache]
-            
+
+        elif name == "gender":
+            options = ["Masculino", "Femenino"]
+
+        elif name == "consolidation_id":
+            self.drop_helper.refresh_all()
+            options = [c["level"] for c in self.drop_helper._consolidation_cache]
+
+        elif name == "occupation":
+            try:
+                all_occs = self.config_service.get_all_occupations()
+                options = [o["name"] for o in all_occs if o.get("name")]
+            except Exception as e:
+                print(f"Error al cargar ocupaciones para filtro: {e}")
+                options = []
+
         elif name == "cdb":
             self.drop_helper.refresh_all()
             options = [f"CDB {c['number']}" for c in self.drop_helper._cdb_cache]
@@ -332,6 +456,11 @@ class SearchPersonFrame(BaseFrame):
                     num = val.replace("CDB ", "")
                     cdb_obj = next((c for c in self.drop_helper._cdb_cache if str(c['number']) == num), None)
                     self._active_filters[name] = cdb_obj["cdb_id"] if cdb_obj else None
+                
+                elif name == "consolidation_id":
+                    cons_obj = next((c for c in self.drop_helper._consolidation_cache if c["level"] == val), None)
+                    self._active_filters[name] = cons_obj["consolidation_id"] if cons_obj else None
+
                 else:
                     self._active_filters[name] = val
                 

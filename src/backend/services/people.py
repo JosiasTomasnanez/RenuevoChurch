@@ -283,9 +283,6 @@ def _validate_person_payload(payload: dict):
 
     return payload
 
-# =========================================================================
-# ALIAS PARA EL ROUTER (Evita el error 501)
-# =========================================================================
 
 def get_occupations_for_person(person_id: int) -> List[dict]:
     """Alias para resolver la petición del router de personas."""

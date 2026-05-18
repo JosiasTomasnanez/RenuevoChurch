@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 from src.frontend.views._base import BaseFrame
 from src.frontend.helpers.config_dropdown_helper import ConfigDropdownHelper
 from src.frontend.helpers.membership_editor_helper import MembershipEditorHelper
-from tkcalendar import DateEntry # <--- Importación
+from tkcalendar import DateEntry 
 from datetime import datetime
 
 class ModifyPersonFrame(BaseFrame):
@@ -24,6 +24,7 @@ class ModifyPersonFrame(BaseFrame):
         self.combos = {}
         self.person_id = None
         self.drop_helper = ConfigDropdownHelper(self.config_service)
+        self._selected_occupations = [] # Lista temporal en memoria
         
         self._build()
 
@@ -199,6 +200,58 @@ class ModifyPersonFrame(BaseFrame):
 
         self.entries["trusted_person_info"] = trusted_txt
 
+        # ---------------------------------------------------------
+        # NUEVO: SECCIÓN OCUPACIONES / OFICIOS (IGUAL A ADD PERSON)
+        # ---------------------------------------------------------
+        occupations_frame = tk.Frame(right, bg=self.BG_PRIMARY)
+        occupations_frame.grid(row=2, column=0, sticky="w", pady=(15, 0))
+
+        tk.Label(
+            occupations_frame,
+            text="Ocupaciones / Oficios",
+            bg=self.BG_PRIMARY,
+            fg=self.TEXT_DARK,
+            font=("TkDefaultFont", 10, "bold")
+        ).pack(anchor="w", pady=(0, 3))
+
+        add_occ_row = tk.Frame(occupations_frame, bg=self.BG_PRIMARY)
+        add_occ_row.pack(fill="x", anchor="w")
+
+        self.occ_combo_var = tk.StringVar()
+        self.occ_combobox = ttk.Combobox(add_occ_row, textvariable=self.occ_combo_var, width=25, state="readonly")
+        self.occ_combobox.pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            add_occ_row,
+            text="Agregar",
+            command=self._add_occupation_to_list,
+            bg=self.BTN_COLOR,
+            fg="white",
+            padx=5
+        ).pack(side="left")
+
+        self.occupations_listbox = tk.Listbox(
+            occupations_frame,
+            width=40,
+            height=4,
+            bg=self.BG_INPUT,
+            fg=self.TEXT_DARK,
+            relief="solid",
+            bd=1
+        )
+        self.occupations_listbox.pack(anchor="w", pady=5)
+
+        tk.Button(
+            occupations_frame,
+            text="Quitar seleccionado",
+            command=self._remove_occupation_from_list,
+            bg="#c0392b",
+            fg="white",
+            padx=5
+        ).pack(anchor="w")
+        
+        self._refresh_occupations_combo()
+
         # =========================================================
         # BOTONES
         # =========================================================
@@ -222,6 +275,49 @@ class ModifyPersonFrame(BaseFrame):
             fg="white",
             width=18
         ).pack(side="left", padx=5)
+
+    # ---------------- Lógica del Combo de Ocupaciones ----------------
+
+    def _refresh_occupations_combo(self):
+        try:
+            self._global_occupations = self.config_service.get_all_occupations()
+            names = [occ.get("name", "") for occ in self._global_occupations if occ.get("name")]
+            self.occ_combobox["values"] = names
+            if names:
+                self.occ_combobox.current(0)
+        except Exception as e:
+            print(f"Error cargando combo de ocupaciones: {e}")
+
+    def _add_occupation_to_list(self):
+        selected_name = self.occ_combo_var.get()
+        if not selected_name:
+            return
+
+        found_occ = next((o for o in self._global_occupations if o.get("name") == selected_name), None)
+        if not found_occ:
+            return
+
+        occ_id = found_occ.get("occupation_id") or found_occ.get("id")
+
+        if any(o["id"] == occ_id for o in self._selected_occupations):
+            messagebox.showwarning("Atención", "Esta ocupación ya fue agregada")
+            return
+
+        self._selected_occupations.append({"id": occ_id, "name": selected_name})
+        self.occupations_listbox.insert("end", selected_name)
+
+    def _remove_occupation_from_list(self):
+        selected_index = self.occupations_listbox.curselection()
+        if not selected_index:
+            messagebox.showwarning("Atención", "Seleccione una ocupación de la lista para quitar")
+            return
+        
+        idx = selected_index[0]
+        self.occupations_listbox.delete(idx)
+        if idx < len(self._selected_occupations):
+            self._selected_occupations.pop(idx)
+
+    # ---------------- Guardar y Otros ----------------
     
     def _on_load(self):
         pid = self.entries["person_id"].get().strip()
@@ -286,9 +382,27 @@ class ModifyPersonFrame(BaseFrame):
             mems = self.controller.get_memberships(self.person_id) or []
             self.membership_editor.set_memberships(mems)
 
+            # -------------------------------------------------------------
+            # NUEVO: CARGAR LAS OCUPACIONES QUE YA TIENE LA PERSONA
+            # -------------------------------------------------------------
+            try:
+                # Obtenemos las ocupaciones usando la función del controlador que ya creamos antes
+                loaded_occups = self.controller.get_occupations(self.person_id) or []
+                self._selected_occupations = []
+                self.occupations_listbox.delete(0, tk.END)
+                
+                for occ in loaded_occups:
+                    # Obtenemos de forma flexible la id y el nombre según devuelva tu JSON
+                    o_id = occ.get("occupation_id") or occ.get("id")
+                    o_name = occ.get("name")
+                    if o_id and o_name:
+                        self._selected_occupations.append({"id": o_id, "name": o_name})
+                        self.occupations_listbox.insert("end", o_name)
+            except Exception as ecc_err:
+                print(f"Error cargando ocupaciones del usuario: {ecc_err}")
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
-    # ---------------- Guardar y Otros ----------------
 
     def _on_save(self):
         if not self.person_id: return
@@ -309,6 +423,11 @@ class ModifyPersonFrame(BaseFrame):
         payload["gender"] = self.combos["gender"].get()
         payload["marital_status"] = self.combos["marital_status"].get()
         payload["membership_status"] = self.combos["membership_status"].get()
+
+        # -------------------------------------------------------------
+        # NUEVO: Enviamos la lista de ocupaciones en el payload (igual que el add)
+        # -------------------------------------------------------------
+        payload["occupation_ids"] = [occ["id"] for occ in self._selected_occupations]
 
         try:
             self.controller.update_person(self.person_id, payload)
@@ -347,6 +466,8 @@ class ModifyPersonFrame(BaseFrame):
             c.set("") 
 
         self.membership_editor.clear()
+        self._selected_occupations = []        # NUEVO: Limpia array temporal
+        self.occupations_listbox.delete(0, tk.END) # NUEVO: Limpia caja visual
         self.person_id = None
 
     def refresh_dropdowns(self):
@@ -358,7 +479,15 @@ class ModifyPersonFrame(BaseFrame):
             self.combos["marital_status"]["values"] = statuses
         except Exception as e:
             print(f"Error al refrescar estados civiles: {e}")
+
+        try:
+            ms = [m["name"] for m in self.config_service.get_membership_statuses()]
+            self.combos["membership_status"]["values"] = ms
+        except Exception as e:
+            print(f"Error al refrescar estados de membresía: {e}")
+
         self.membership_editor.refresh_ministry_combo() 
+        self._refresh_occupations_combo() # NUEVO: Refresca el combobox en cambios globales
 
     def load_person_by_id(self, person_id: int):
         self._clear_form()

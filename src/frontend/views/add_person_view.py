@@ -277,17 +277,20 @@ class AddPersonFrame(BaseFrame):
         payload["consolidation_id"] = self.drop_helper.get_consolidation_id(self.combos["consolidation_id"].get())
         payload["cdb"] = self.drop_helper.get_cdb_id(self.combos["cdb"].get())
 
+        # -------------------------------------------------------------
+        # NUEVO: Inyectamos los IDs de ocupación seleccionados en el payload
+        # tal como lo espera tu backend en la capa de servicios.
+        # -------------------------------------------------------------
+        payload["occupation_ids"] = [occ["id"] for occ in self._selected_occupations]
+
         try:
+            # Al enviar el payload, el backend creará la persona y guardará las ocupaciones juntas
             person_id = self.controller.create_person(payload)
+            
             current_mems = self.membership_editor.memberships
             if current_mems:
                 db_mems = [{"ministry_id": m["ministry_id"], "area_id": m["area_id"]} for m in current_mems]
                 self.controller.update_memberships(person_id, db_mems)
-
-            selected_occ_ids = [occ["id"] for occ in self._selected_occupations]
-            
-            if hasattr(self.controller, "update_person_occupations"):
-                self.controller.update_person_occupations(person_id, selected_occ_ids)
 
             messagebox.showinfo("OK", "Persona creada exitosamente")
             self._clear_form()
