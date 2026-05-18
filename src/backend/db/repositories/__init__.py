@@ -12,10 +12,10 @@ from .person_repository import (
     delete_person as delete_person,
     create_person as create_person,
     update_person as update_person,
-    # --- NUEVAS EXPORTACIONES PARA RELACIÓN DE OCUPACIONES ---
+    # --- RELACIÓN DE OCUPACIONES (Sincronizado con tus nombres reales) ---
     get_person_occupations as get_person_occupations,
-    set_person_occupations as set_person_occupations,
-    find_person_ids_by_occupation as find_person_ids_by_occupation,
+    update_person_occupations as update_person_occupations,
+    find_people_by_occupation as find_people_by_occupation,
 )
 from .ministry_repository import get_area_and_ministry
 from .person_ministry_repository import (
@@ -45,7 +45,7 @@ from .config_repository import (
     create_cdb as create_cdb,
     update_cdb as update_cdb,
     delete_cdb as delete_cdb,
-    # --- NUEVAS EXPORTACIONES DEL CATÁLOGO MAESTRO (CONFIG) ---
+    # --- EXPORTACIONES DEL CATÁLOGO MAESTRO (CONFIG) ---
     get_marital_statuses as get_marital_statuses,
     create_marital_status as create_marital_status,
     delete_marital_status as delete_marital_status,
@@ -69,8 +69,8 @@ __all__ = [
     "create_person",
     "update_person",
     "get_person_occupations",  
-    "set_person_occupations", 
-    "find_person_ids_by_occupation", 
+    "update_person_occupations", # <-- Cambiado set por update
+    "find_people_by_occupation", # <-- Cambiado ids por la función completa
     "list_memberships_by_person",
     "set_memberships_for_person",
     "find_person_ids_by_ministry",
