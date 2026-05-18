@@ -285,6 +285,40 @@ class Database:
                         )
                         """
                     )
+                                        # membership_status
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person'
+                        AND column_name = 'membership_status'
+                        """
+                    )
+
+                    if cur.fetchone() is None:
+                        cur.execute(
+                            "ALTER TABLE person ADD COLUMN membership_status TEXT"
+                        )
+
+                    # membership_status_id
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person'
+                        AND column_name = 'membership_status_id'
+                        """
+                    )
+
+                    if cur.fetchone() is None:
+                        cur.execute(
+                            """
+                            ALTER TABLE person
+                            ADD COLUMN membership_status_id INTEGER
+                            REFERENCES membership_status(id)
+                            ON DELETE SET NULL
+                            """
+                        )
         except Exception:
             pass
 
@@ -301,6 +335,14 @@ def _get_schema_statements(backend: str) -> List[str]:
             name TEXT NOT NULL UNIQUE
         )
         """,
+        f"""
+        CREATE TABLE IF NOT EXISTS membership_status (
+            id {pk},
+            name TEXT NOT NULL UNIQUE
+        )
+        """,
+
+        
         # Consolidation levels
         f"""
         CREATE TABLE IF NOT EXISTS consolidation (
@@ -359,6 +401,7 @@ def _get_schema_statements(backend: str) -> List[str]:
             address_id INTEGER REFERENCES address(address_id) ON DELETE SET NULL,
             trusted_person_info TEXT,
             ministry_area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
+            membership_status_id INTEGER REFERENCES membership_status(id) ON DELETE SET NULL,
             consolidation_id INTEGER REFERENCES consolidation(consolidation_id) ON DELETE SET NULL,
             future_ministry_area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
             first_name TEXT,

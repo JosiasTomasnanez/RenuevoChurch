@@ -32,10 +32,10 @@ class ModifyPersonFrame(BaseFrame):
         main.pack(padx=10, pady=10, fill="both", expand=True)
 
         left = tk.Frame(main, bg=self.BG_PRIMARY)
-        left.pack(side="left", fill="both", expand=True)
+        left.pack(side="left", fill="both")
 
         right = tk.Frame(main, bg=self.BG_PRIMARY)
-        right.pack(side="right", fill="y", padx=(20, 0))
+        right.pack(side="left", fill="y", padx=(10, 0))
 
         self.entries = {}
         self.combos = {}
@@ -70,25 +70,29 @@ class ModifyPersonFrame(BaseFrame):
             lbl.grid(row=i, column=0, sticky="w", padx=6, pady=3)
 
             if key == "person_id":
+
+                id_frame = tk.Frame(left, bg=self.BG_PRIMARY)
+                id_frame.grid(row=i, column=1, sticky="w", padx=6, pady=3)
+
                 e = tk.Entry(
-                    left,
-                    width=40,
+                    id_frame,
+                    width=10,
                     bg=self.BG_INPUT,
                     fg=self.TEXT_DARK,
                     relief="solid",
                     bd=1
                 )
 
-                e.grid(row=i, column=1, sticky="w", padx=6, pady=3)
+                e.pack(side="left")
                 self.entries[key] = e
 
                 tk.Button(
-                    left,
+                    id_frame,
                     text="Cargar",
                     command=self._on_load,
                     bg=self.BTN_COLOR,
                     fg="white"
-                ).grid(row=i, column=2, padx=4)
+                ).pack(side="left", padx=(3, 0))
 
             elif key == "birthdate":
                 cal = DateEntry(

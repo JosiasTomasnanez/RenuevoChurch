@@ -526,7 +526,7 @@ def create_person(payload: Dict) -> int:
 
     person_fields = (
         "first_name", "last_name", "email", "birthdate", "gender",
-        "dni", "phone_number", "marital_status", "social_security",
+        "dni", "phone_number", "marital_status","membership_status", "social_security",
         "baptized", "cdb", "trusted_person_info", "ministry_id",
         "ministry_area_id", "consolidation_id", "future_ministry_area_id",
     )
@@ -633,6 +633,7 @@ def update_person(person_id: int, payload: Dict) -> bool:
         "dni",
         "phone_number",
         "marital_status",
+        "membership_status",
         "social_security",
         "baptized",
         "cdb",

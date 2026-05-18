@@ -26,7 +26,10 @@ class PersonCreate(BaseModel):
     birthdate: Optional[str] = None
     dni: Optional[int] = None
     phone_number: Optional[str] = None
+
     marital_status: Optional[str] = None
+    membership_status: Optional[str] = None
+
     social_security: Optional[str] = None
     baptized: Optional[bool] = None
     cdb: Optional[int] = None
@@ -54,7 +57,10 @@ class PersonUpdate(BaseModel):
     birthdate: Optional[str] = None
     dni: Optional[int] = None
     phone_number: Optional[str] = None
+
     marital_status: Optional[str] = None
+    membership_status: Optional[str] = None
+
     social_security: Optional[str] = None
     baptized: Optional[bool] = None
     cdb: Optional[int] = None
@@ -82,6 +88,10 @@ class PersonResponse(BaseModel):
     email: Optional[str] = None
     dni: Optional[str] = None
     phone_number: Optional[str] = None
+
+    marital_status: Optional[str] = None
+    membership_status: Optional[str] = None
+
     trusted_person_info: Optional[str] = None
 
     street: Optional[str] = None

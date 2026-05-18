@@ -106,5 +106,17 @@ class ConfigService:
     def delete_marital_status(self, status_id: int) -> bool:
         """Delete a marital status option."""
         return repo.delete_marital_status(status_id)
+    
+    def get_membership_statuses(self) -> List[Dict]:
+        """Get all membership status options."""
+        return repo.get_membership_statuses()
+
+    def create_membership_status(self, name: str) -> int:
+        """Create a new membership status option."""
+        return repo.create_membership_status(name)
+
+    def delete_membership_status(self, status_id: int) -> bool:
+        """Delete a membership status option."""
+        return repo.delete_membership_status(status_id)
 
 __all__ = ["ConfigService"]

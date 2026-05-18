@@ -10,11 +10,14 @@ from src.backend.api.schemas.config_schema import (
 class MaritalStatusCreate(BaseModel):
     name: str
 
+class MembershipStatusCreate(BaseModel):
+    name: str
+
 router = APIRouter(
     prefix="/config",
     tags=["config"]
 )
-
+    
 service = ConfigService()
 
 # ================================
@@ -181,7 +184,7 @@ def get_marital_statuses():
     return service.get_marital_statuses()
 
 @router.post("/marital-statuses")
-def create_marital_status(data: MaritalStatusCreate): # <--- Ahora usa 'data' con el schema
+def create_marital_status(data: MaritalStatusCreate): 
     """Endpoint para crear un nuevo estado civil."""
     return {"id": service.create_marital_status(data.name)}
 
@@ -191,4 +194,37 @@ def delete_marital_status(status_id: int):
     ok = service.delete_marital_status(status_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Status not found")
+    return {"status": "deleted"}
+
+# ================================
+# Membership Status
+# ================================
+
+@router.get("/membership-statuses")
+def get_membership_statuses():
+    """Endpoint para obtener la lista de estados de membresía."""
+    return service.get_membership_statuses()
+
+
+@router.post("/membership-statuses")
+def create_membership_status(data: MembershipStatusCreate):
+    """Endpoint para crear un nuevo estado de membresía."""
+
+    return {
+        "id": service.create_membership_status(data.name)
+    }
+
+
+@router.delete("/membership-statuses/{status_id}")
+def delete_membership_status(status_id: int):
+    """Endpoint para eliminar un estado de membresía."""
+
+    ok = service.delete_membership_status(status_id)
+
+    if not ok:
+        raise HTTPException(
+            status_code=404,
+            detail="Status not found"
+        )
+
     return {"status": "deleted"}

@@ -322,6 +322,39 @@ def delete_marital_status(status_id):
     except Exception as e:
         print(f"Error eliminando estado civil: {e}")
         return False
+    
+# ============================================================================
+# Membership Status Management
+# ============================================================================
+def get_membership_statuses():
+    return db.query_all(
+        "SELECT id, name FROM membership_status ORDER BY name ASC"
+    )
+
+
+def create_membership_status(name):
+    return db.insert(
+        "INSERT INTO membership_status (name) VALUES (%s)",
+        (name,)
+    )
+
+
+def delete_membership_status(status_id):
+    if status_id is None:
+        return False
+
+    try:
+        db.execute(
+            "DELETE FROM membership_status WHERE id = %s",
+            (status_id,)
+        )
+        return True
+
+    except Exception as e:
+        print(f"Error eliminando estado de membresía: {e}")
+        return False
+
+
 
 __all__ = [
     "get_all_ministries",
@@ -347,5 +380,8 @@ __all__ = [
     "delete_cdb",
     "get_marital_statuses",
     "create_marital_status",
-    "delete_marital_status"
+    "delete_marital_status",
+    "get_membership_statuses",
+    "create_membership_status",
+    "delete_membership_status"
 ]

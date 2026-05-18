@@ -23,6 +23,7 @@ class ConfigurationFrame(BaseFrame):
         self._build_consolidation_tab(notebook)
         self._build_cdb_tab(notebook)
         self._build_marital_status_tab(notebook)
+        self._build_membership_status_tab(notebook)
 
     def _on_config_changed(self):
         """Se llama cuando cualquier tabla cambia para refrescar combos y avisar a otros."""
@@ -67,6 +68,38 @@ class ConfigurationFrame(BaseFrame):
         tk.Button(input_frame, text="Eliminar", command=self.marital_helper.delete, bg="#c0392b", fg="white").pack(side="left")
         
         self.marital_helper.refresh_list()
+
+    def _build_membership_status_tab(self, notebook):
+        frame = ttk.Frame(notebook)
+        notebook.add(frame, text="Estado Membresía")
+
+        input_frame = tk.Frame(frame)
+        input_frame.pack(fill="x", padx=6, pady=6)
+
+        tk.Label(input_frame, text="Nombre:").pack(side="left")
+        entry = tk.Entry(input_frame, width=40)
+        entry.pack(side="left", padx=6)
+
+        listbox = tk.Listbox(frame, width=50, height=15)
+        listbox.pack(padx=6, pady=6, fill="both", expand=True)
+
+        self.membership_helper = ConfigTableHelper(
+            label="Estado Membresía",
+            entry_widget=entry,
+            listbox_widget=listbox,
+            on_get_items=self.config_service.get_membership_statuses,
+            on_add=self.config_service.create_membership_status,
+            on_update=lambda id, val: None,  # igual que marital
+            on_delete=self.config_service.delete_membership_status,
+            display_key="name",
+            item_id_key="id",
+            on_change=self._on_config_changed
+        )
+
+        tk.Button(input_frame, text="Agregar", command=self.membership_helper.add).pack(side="left")
+        tk.Button(input_frame, text="Eliminar", command=self.membership_helper.delete, bg="#c0392b", fg="white").pack(side="left")
+
+        self.membership_helper.refresh_list()
 
     def _build_ministries_tab(self, notebook):
         frame = ttk.Frame(notebook)

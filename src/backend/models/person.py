@@ -24,6 +24,7 @@ class Person:
     dni: Optional[int]
     phone_number: Optional[str]
     marital_status: Optional[str]
+    membership_status: Optional[str]
     social_security: Optional[str]
     baptized: Optional[bool]
     cdb: Optional[int]  # CDB house ID (foreign key to cdb table, can be None)
@@ -99,6 +100,7 @@ class Person:
                 dni=data.get("dni"),
                 phone_number=data.get("phone_number"),
                 marital_status=data.get("marital_status"),
+                membership_status=data.get("membership_status"),
                 social_security=data.get("social_security"),
                 baptized=data.get("baptized"),
                 cdb=data.get("cdb"),
@@ -156,6 +158,7 @@ class Person:
             dni=Person._get(p, "dni"),
             phone_number=Person._get(p, "phone_number"),
             marital_status=Person._get(p, "marital_status"),
+            membership_status=Person._get(p, "membership_status"),
             social_security=Person._get(p, "social_security"),
             baptized=Person._get(p, "baptized"),
             cdb=Person._get(p, "cdb"),

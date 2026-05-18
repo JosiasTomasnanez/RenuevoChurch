@@ -106,7 +106,7 @@ class ConfigAPI:
     def get_cdb_by_id(cdb_id):
         return ApiClient.get(f"/config/cdb/{cdb_id}")
 
-# =========================
+    # =========================
     # MARITAL STATUS
     # =========================
 
@@ -122,3 +122,20 @@ class ConfigAPI:
     @staticmethod
     def delete_marital_status(status_id):
         return ApiClient.delete(f"/config/marital-statuses/{status_id}")
+    
+    # =========================
+    # MEMBERSHIP STATUS
+    # =========================
+
+    @staticmethod
+    def get_membership_statuses():
+        res = ApiClient.get("/config/membership-statuses")
+        return ConfigAPI._normalize(res)
+
+    @staticmethod
+    def create_membership_status(name):
+        return ApiClient.post("/config/membership-statuses", {"name": name})
+
+    @staticmethod
+    def delete_membership_status(status_id):
+        return ApiClient.delete(f"/config/membership-statuses/{status_id}")
