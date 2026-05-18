@@ -1,6 +1,6 @@
 from src.frontend.views._base import BaseFrame, tk, messagebox, ttk
 from src.frontend.helpers.config_dropdown_helper import ConfigDropdownHelper
-from src.frontend.helpers.membership_editor_helper import MembershipEditorHelper # <--- NUEVA IMPORTACIÓN
+from src.frontend.helpers.membership_editor_helper import MembershipEditorHelper 
 from tkcalendar import DateEntry
 
 class AddPersonFrame(BaseFrame):
@@ -45,6 +45,7 @@ class AddPersonFrame(BaseFrame):
             ("dni", "DNI"),
             ("phone_number", "Teléfono"),
             ("marital_status", "Estado civil"),
+            ("membership_status", "Estado de membresía"),
             ("social_security", "Seguro Social"),
             ("street", "Calle"),
             ("neighborhood", "Barrio"),
@@ -62,7 +63,7 @@ class AddPersonFrame(BaseFrame):
                 fg=self.TEXT_DARK
             ).grid(row=i, column=0, sticky="w", padx=6, pady=3)
 
-            if key in ["consolidation_id", "cdb", "baptized", "gender", "marital_status"]:
+            if key in ["consolidation_id", "cdb", "baptized", "gender", "marital_status", "membership_status"]:
                 combo = ttk.Combobox(left, width=37, state="readonly")
                 combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.combos[key] = combo
@@ -99,6 +100,7 @@ class AddPersonFrame(BaseFrame):
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
         self.drop_helper.fill_marital_statuses(self.combos["marital_status"])
+        self.drop_helper.fill_membership_statuses(self.combos["membership_status"])
 
         self.combos["gender"]["values"] = ["Masculino", "Femenino"]
 
@@ -151,6 +153,7 @@ class AddPersonFrame(BaseFrame):
         trusted_txt.pack(anchor="w", pady=(3, 0))
 
         self.entries["trusted_person_info"] = trusted_txt
+
     def _on_submit(self):
         payload = {}
         
@@ -168,6 +171,7 @@ class AddPersonFrame(BaseFrame):
         payload["gender"] = self.combos["gender"].get() 
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
         payload["marital_status"] = self.combos["marital_status"].get()
+        payload["membership_status"] = self.combos["membership_status"].get()
         payload["consolidation_id"] = self.drop_helper.get_consolidation_id(self.combos["consolidation_id"].get())
         payload["cdb"] = self.drop_helper.get_cdb_id(self.combos["cdb"].get())
 
@@ -203,4 +207,5 @@ class AddPersonFrame(BaseFrame):
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
         self.drop_helper.fill_marital_statuses(self.combos["marital_status"])
+        self.drop_helper.fill_membership_statuses(self.combos["membership_status"])
         self.membership_editor.refresh_ministry_combo()

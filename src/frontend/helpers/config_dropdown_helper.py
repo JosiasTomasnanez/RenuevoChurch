@@ -10,6 +10,7 @@ class ConfigDropdownHelper:
         self._consolidation_cache = []
         self._cdb_cache = []
         self._marital_cache = []
+        self._membership_cache = []
 
   
     def refresh_all(self):
@@ -19,6 +20,7 @@ class ConfigDropdownHelper:
             self._consolidation_cache = self.config_service.get_all_consolidations()
             self._cdb_cache = self.config_service.get_all_cdb_options()
             self._marital_cache = self.config_service.get_marital_statuses()
+            self._membership_cache = self.config_service.get_membership_statuses()
           
                 
         except Exception:
@@ -107,3 +109,15 @@ class ConfigDropdownHelper:
         except Exception as e:
             print(f"Error al llenar estados civiles: {e}")
             combo["values"] = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a"]
+    
+    def fill_membership_statuses(self, combo):
+        if not self._membership_cache:
+            self._membership_cache = self.config_service.get_membership_statuses()
+
+        combo["values"] = [m["name"] for m in self._membership_cache]
+
+    def get_membership_status_id(self, name: str):
+        for m in self._membership_cache:
+            if m["name"] == name:
+                return m["id"]
+        return None

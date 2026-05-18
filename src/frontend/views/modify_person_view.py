@@ -40,8 +40,41 @@ class ModifyPersonFrame(BaseFrame):
         self.entries = {}
         self.combos = {}
 
+        # =========================================================
+        # HEADER (ID + CARGAR)
+        # =========================================================
+        header = tk.Frame(left, bg=self.BG_PRIMARY)
+        header.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        tk.Label(
+            header,
+            text="ID Persona",
+            bg=self.BG_PRIMARY,
+            fg=self.TEXT_DARK
+        ).pack(side="left", padx=(0, 5))
+
+        self.entries["person_id"] = tk.Entry(
+            header,
+            width=10,
+            bg=self.BG_INPUT,
+            fg=self.TEXT_DARK,
+            relief="solid",
+            bd=1
+        )
+        self.entries["person_id"].pack(side="left")
+
+        tk.Button(
+            header,
+            text="Cargar",
+            command=self._on_load,
+            bg=self.BTN_COLOR,
+            fg="white"
+        ).pack(side="left", padx=5)
+
+        # =========================================================
+        # CAMPOS
+        # =========================================================
         fields = [
-            ("person_id", "ID Persona"),
             ("first_name", "Nombre"),
             ("last_name", "Apellido"),
             ("email", "Correo"),
@@ -50,6 +83,7 @@ class ModifyPersonFrame(BaseFrame):
             ("dni", "DNI"),
             ("phone_number", "Teléfono"),
             ("marital_status", "Estado civil"),
+            ("membership_status", "Estado membresía"), 
             ("social_security", "Seguro Social"),
             ("street", "Calle"),
             ("neighborhood", "Barrio"),
@@ -59,41 +93,25 @@ class ModifyPersonFrame(BaseFrame):
             ("baptized", "¿Bautizado?"),
         ]
 
-        for i, (key, label) in enumerate(fields):
-            lbl = tk.Label(
+        for i, (key, label) in enumerate(fields, start=1):
+            tk.Label(
                 left,
                 text=label,
                 bg=self.BG_PRIMARY,
                 fg=self.TEXT_DARK
-            )
+            ).grid(row=i, column=0, sticky="w", padx=6, pady=3)
 
-            lbl.grid(row=i, column=0, sticky="w", padx=6, pady=3)
+            # -------------------------
+            # COMBOS
+            # -------------------------
+            if key in ["consolidation_id", "cdb", "baptized", "gender", "marital_status", "membership_status"]:
+                combo = ttk.Combobox(left, width=37, state="readonly")
+                combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
+                self.combos[key] = combo
 
-            if key == "person_id":
-
-                id_frame = tk.Frame(left, bg=self.BG_PRIMARY)
-                id_frame.grid(row=i, column=1, sticky="w", padx=6, pady=3)
-
-                e = tk.Entry(
-                    id_frame,
-                    width=10,
-                    bg=self.BG_INPUT,
-                    fg=self.TEXT_DARK,
-                    relief="solid",
-                    bd=1
-                )
-
-                e.pack(side="left")
-                self.entries[key] = e
-
-                tk.Button(
-                    id_frame,
-                    text="Cargar",
-                    command=self._on_load,
-                    bg=self.BTN_COLOR,
-                    fg="white"
-                ).pack(side="left", padx=(3, 0))
-
+            # -------------------------
+            # DATE
+            # -------------------------
             elif key == "birthdate":
                 cal = DateEntry(
                     left,
@@ -105,15 +123,12 @@ class ModifyPersonFrame(BaseFrame):
                     locale='es_ES',
                     headersbackground='#E6D5F2'
                 )
-
                 cal.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = cal
 
-            elif key in ["consolidation_id", "cdb", "baptized", "gender", "marital_status"]:
-                combo = ttk.Combobox(left, width=37, state="readonly")
-                combo.grid(row=i, column=1, sticky="w", padx=6, pady=3)
-                self.combos[key] = combo
-
+            # -------------------------
+            # INPUTS
+            # -------------------------
             else:
                 e = tk.Entry(
                     left,
@@ -123,28 +138,28 @@ class ModifyPersonFrame(BaseFrame):
                     relief="solid",
                     bd=1
                 )
-
                 e.grid(row=i, column=1, sticky="w", padx=6, pady=3)
                 self.entries[key] = e
 
-    # --- DROPDOWNS ---
+        # =========================================================
+        # DROPDOWNS
+        # =========================================================
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
 
-        statuses = [
-            s["name"]
-            for s in self.config_service.get_marital_statuses()
-        ]
-
+        statuses = [s["name"] for s in self.config_service.get_marital_statuses()]
         self.combos["marital_status"]["values"] = statuses
+
+        ms = [m["name"] for m in self.config_service.get_membership_statuses()]
+        self.combos["membership_status"]["values"] = ms
+
         self.combos["baptized"]["values"] = ["Sí", "No"]
         self.combos["gender"]["values"] = ["Masculino", "Femenino"]
 
-    # =========================================================
-    # LADO DERECHO
-    # =========================================================
+        # =========================================================
+        # LADO DERECHO
+        # =========================================================
 
-    # --- CONTENEDOR DE MINISTERIOS ---
         membership_container = tk.Frame(right, bg=self.BG_PRIMARY)
         membership_container.grid(row=0, column=0, sticky="nw")
 
@@ -157,7 +172,9 @@ class ModifyPersonFrame(BaseFrame):
             text_dark=self.TEXT_DARK
         )
 
-        # --- CONTACTO DE EMERGENCIA ABAJO ---
+        # -------------------------
+        # CONTACTO EMERGENCIA
+        # -------------------------
         contact_frame = tk.Frame(right, bg=self.BG_PRIMARY)
         contact_frame.grid(row=1, column=0, sticky="w", pady=(20, 0))
 
@@ -178,7 +195,6 @@ class ModifyPersonFrame(BaseFrame):
             bd=1,
             wrap="word"
         )
-
         trusted_txt.pack(anchor="w", pady=(3, 0))
 
         self.entries["trusted_person_info"] = trusted_txt
@@ -186,15 +202,8 @@ class ModifyPersonFrame(BaseFrame):
         # =========================================================
         # BOTONES
         # =========================================================
-
         btn_f = tk.Frame(left, bg=self.BG_PRIMARY)
-
-        btn_f.grid(
-            row=len(fields) + 1,
-            column=0,
-            columnspan=2,
-            pady=20
-        )
+        btn_f.grid(row=len(fields) + 1, column=0, columnspan=2, pady=20)
 
         tk.Button(
             btn_f,
@@ -259,7 +268,13 @@ class ModifyPersonFrame(BaseFrame):
             status_val = person.get("marital_status")
             if status_val:
                 self.combos["marital_status"].set(status_val)
+
+            ms_val = person.get("membership_status")
+            if ms_val:
+                self.combos["membership_status"].set(ms_val)
+
             self.combos["gender"].set(person.get("gender") or "")
+
             cons_obj = self.drop_helper.find_consolidation_by_id(person.get("consolidation_id"))
             if cons_obj: self.combos["consolidation_id"].set(cons_obj["level"])
 
@@ -279,7 +294,6 @@ class ModifyPersonFrame(BaseFrame):
         if not self.person_id: return
         
         payload = {}
-        # CAMBIO: Extrae el texto según el tipo de widget (Text usa "1.0" a "end-1c")
         for k, widget in self.entries.items():
             if k == "person_id": 
                 continue
@@ -294,6 +308,7 @@ class ModifyPersonFrame(BaseFrame):
         payload["baptized"] = self.combos["baptized"].get() == "Sí"
         payload["gender"] = self.combos["gender"].get()
         payload["marital_status"] = self.combos["marital_status"].get()
+        payload["membership_status"] = self.combos["membership_status"].get()
 
         try:
             self.controller.update_person(self.person_id, payload)
@@ -303,6 +318,10 @@ class ModifyPersonFrame(BaseFrame):
             
             messagebox.showinfo("OK", "Actualizado correctamente")
             if self._on_data_changed: self._on_data_changed()
+
+            self._clear_form()
+            self.person_id = None
+            
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -319,7 +338,6 @@ class ModifyPersonFrame(BaseFrame):
         for k, e in self.entries.items():
             if k == "birthdate":
                 e.set_date(datetime.now()) 
-            # CAMBIO: Limpieza adaptada si el campo es un tk.Text
             elif isinstance(e, tk.Text):
                 e.delete("1.0", tk.END)
             else:

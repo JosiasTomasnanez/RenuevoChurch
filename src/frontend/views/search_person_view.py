@@ -19,12 +19,12 @@ class SearchPersonFrame(BaseFrame):
         
         # Columnas disponibles
         self._all_cols = (
-            "person_id", "first_name", "last_name","gender","marital_status", "dni","social_security","birthdate","age", "neighborhood", 
+            "person_id", "first_name", "last_name","gender","marital_status","membership_status",  "dni","social_security","birthdate","age", "neighborhood", 
             "phone_number","trusted_person_info", "baptized", "cdb", "consolidation_id"
         )
         self._headers = {
             "person_id": "ID", "first_name": "Nombre", "last_name": "Apellido",
-            "gender": "Género","marital_status": "Estado Civil", "dni": "DNI",
+            "gender": "Género","marital_status": "Estado Civil", "membership_status": "Estado de Membresía", "dni": "DNI",
             "social_security": "Obra Social", "birthdate": "Fec. Nac.", "age": "Edad",
             "neighborhood": "Barrio", "phone_number": "Teléfono","trusted_person_info": "Contacto de Emergencia",
             "baptized": "Bautizado", "cdb": "CDB", "consolidation_id": "Consolidación"
@@ -33,7 +33,7 @@ class SearchPersonFrame(BaseFrame):
         _defaults = {"person_id", "first_name", "last_name", "dni", "neighborhood"}
         self._col_vars = {c: tk.BooleanVar(value=(c in _defaults)) for c in self._all_cols}
         
-        self._active_filters = {"neighborhood": None, "ministry": None, "cdb": None, "marital_status": None}
+        self._active_filters = {"neighborhood": None, "ministry": None, "cdb": None, "marital_status": None, "membership_status": None}
 
         self._build()
 
@@ -75,6 +75,7 @@ class SearchPersonFrame(BaseFrame):
         filt_menu.add_command(label="Ministerio...", command=lambda: self._open_filter("ministry"))
         filt_menu.add_command(label="CDB...", command=lambda: self._open_filter("cdb"))
         filt_menu.add_command(label="Estado Civil...", command=lambda: self._open_filter("marital_status"))
+        filt_menu.add_command(label="Estado de Membresía...", command=lambda: self._open_filter("membership_status"))
         filt_menu.add_command(label="Barrio...", command=lambda: self._open_filter("neighborhood"))
         filt_menu.add_separator()
         filt_menu.add_command(label="Limpiar Filtros", command=self._clear_all_filters)
@@ -184,6 +185,9 @@ class SearchPersonFrame(BaseFrame):
         if col == "marital_status":
             return val if val else ""
         
+        if col == "membership_status":
+            return val if val else ""
+        
         if col == "baptized":
             return "Sí" if val else "No"
         
@@ -221,6 +225,9 @@ class SearchPersonFrame(BaseFrame):
                 pass
         if f["marital_status"]:
             res = [p for p in res if p.get("marital_status") == f["marital_status"]]
+        
+        if f["membership_status"]:
+            res = [p for p in res if p.get("membership_status") == f["membership_status"]]
             
         return res
 
@@ -269,18 +276,25 @@ class SearchPersonFrame(BaseFrame):
             self.drop_helper.refresh_all()
             options = [f"CDB {c['number']}" for c in self.drop_helper._cdb_cache]
 
-        elif name == "marital_status":
-            # En lugar de usar la lista fija, le pedimos los datos al backend
+        elif name == "membership_status":
             try:
-                # Obtenemos la lista de la DB a través del servicio
+                statuses = self.config_service.get_membership_statuses()
+                options = [s["name"] for s in statuses]
+            except Exception as e:
+                print(f"Error al cargar membership statuses: {e}")
+                options = []
+
+        elif name == "marital_status":
+            try:
                 statuses = self.config_service.get_marital_statuses()
                 options = [s["name"] for s in statuses]
             except Exception as e:
                 print(f"Error al cargar estados civiles para filtro: {e}")
-                # Fallback por si falla la conexión
                 options = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a"]
         for o in options: 
             lb.insert(tk.END, o)
+        
+        
 
         def apply():
             selection = lb.curselection()
