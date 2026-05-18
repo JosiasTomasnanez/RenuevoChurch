@@ -12,6 +12,10 @@ from .person_repository import (
     delete_person as delete_person,
     create_person as create_person,
     update_person as update_person,
+    # --- NUEVAS EXPORTACIONES PARA RELACIÓN DE OCUPACIONES ---
+    get_person_occupations as get_person_occupations,
+    set_person_occupations as set_person_occupations,
+    find_person_ids_by_occupation as find_person_ids_by_occupation,
 )
 from .ministry_repository import get_area_and_ministry
 from .person_ministry_repository import (
@@ -41,6 +45,18 @@ from .config_repository import (
     create_cdb as create_cdb,
     update_cdb as update_cdb,
     delete_cdb as delete_cdb,
+    # --- NUEVAS EXPORTACIONES DEL CATÁLOGO MAESTRO (CONFIG) ---
+    get_marital_statuses as get_marital_statuses,
+    create_marital_status as create_marital_status,
+    delete_marital_status as delete_marital_status,
+    get_membership_statuses as get_membership_statuses,
+    create_membership_status as create_membership_status,
+    delete_membership_status as delete_membership_status,
+    get_all_occupations as get_all_occupations,
+    get_occupation_by_id as get_occupation_by_id,
+    create_occupation as create_occupation,
+    update_occupation as update_occupation,
+    delete_occupation as delete_occupation,
 )
 
 __all__ = [
@@ -52,6 +68,9 @@ __all__ = [
     "delete_person",
     "create_person",
     "update_person",
+    "get_person_occupations",  
+    "set_person_occupations", 
+    "find_person_ids_by_occupation", 
     "list_memberships_by_person",
     "set_memberships_for_person",
     "find_person_ids_by_ministry",
@@ -77,4 +96,15 @@ __all__ = [
     "create_cdb",
     "update_cdb",
     "delete_cdb",
+    "get_marital_statuses",
+    "create_marital_status",
+    "delete_marital_status",
+    "get_membership_statuses",
+    "create_membership_status",
+    "delete_membership_status",
+    "get_all_occupations",
+    "get_occupation_by_id",
+    "create_occupation",
+    "update_occupation",
+    "delete_occupation",
 ]
