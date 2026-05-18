@@ -61,7 +61,7 @@ def _build_main_window():
 
             self.after(0, lambda: self.status_lbl.config(text="Buscando actualizaciones..."))
                 
-            version_url = "https://tu-app.onrender.com/api/version" 
+            version_url = "https://renuevochurch.onrender.com/api/version" 
                 
             try:
                 with urllib.request.urlopen(version_url, timeout=5) as response:
