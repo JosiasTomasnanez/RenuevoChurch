@@ -3,6 +3,11 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 import time
+import sys              
+import urllib.request  
+import json             
+import os              
+import subprocess      
 
 from src.frontend.api.people_api import PeopleAPI
 from src.frontend.api.config_api import ConfigAPI
@@ -13,6 +18,8 @@ from src.frontend.views.person_view import (
 )
 from src.frontend.views.config_view import ConfigurationFrame
 
+CURRENT_VERSION = "1.0.0"
+
 def _build_main_window():
     """Create and return a configured Tk main window instance."""
 
@@ -20,13 +27,11 @@ def _build_main_window():
         def __init__(self):
             super().__init__()
             self.title("Renuevo — Administración")
-            self.withdraw()  # Escondemos la ventana principal mientras carga
+            self.withdraw()  
             
-            # 1. Iniciar APIs
             self.people_api = PeopleAPI()
             self.config_api = ConfigAPI()
             
-            # 2. Lanzar Pantalla de Carga
             self._show_splash()
 
         def _show_splash(self):
@@ -35,7 +40,6 @@ def _build_main_window():
             self.splash.geometry("450x250")
             self.splash.config(bg="#F0E6F6")
             
-            # Centrar ventana
             sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
             self.splash.geometry(f"+{int(sw/2-225)}+{int(sh/2-125)}")
             
@@ -46,15 +50,51 @@ def _build_main_window():
                                        bg="#F0E6F6", fg="#5A5A5A", font=("Arial", 10))
             self.status_lbl.pack()
 
-            # Barra determinada (se llena por pasos)
             self.pb = ttk.Progressbar(self.splash, mode="determinate", length=350, maximum=100)
             self.pb.pack(pady=20)
 
-            # Hilo de carga inteligente
             threading.Thread(target=self._load_data_async, daemon=True).start()
 
         def _load_data_async(self):
             """Checklist de carga para asegurar que Render despertó y los datos están listos."""
+            
+
+            self.after(0, lambda: self.status_lbl.config(text="Buscando actualizaciones..."))
+                
+            version_url = "https://tu-app.onrender.com/api/version" 
+                
+            try:
+                with urllib.request.urlopen(version_url, timeout=5) as response:
+                    data = json.loads(response.read().decode())
+                    latest_version = data.get("latest_version")
+                    download_url = data.get("download_url")
+                        
+                    if latest_version and latest_version != CURRENT_VERSION:
+                        self.after(0, lambda: self.status_lbl.config(
+                            text=f"Nueva versión {latest_version} detectada. Descargando...", fg="#7A4A97"
+                        ))
+                            
+                        temp_dir = os.environ.get("TEMP", os.path.expanduser("~"))
+                        installer_path = os.path.join(temp_dir, "RenuevoChurch_Setup_Update.exe")
+                            
+                        urllib.request.urlretrieve(download_url, installer_path)
+                            
+                        self.after(0, lambda: self.status_lbl.config(text="Instalando y reiniciando...", fg="green"))
+                        time.sleep(1)
+                            
+                        subprocess.Popen([installer_path, "/SILENT"]) 
+                            
+                        self.after(0, sys.exit)
+                        return
+            except Exception as version_err:
+                print(f"No se pudo chequear actualizaciones (offline/timeout): {version_err}")
+                
+            # Actualizamos barra inicial tras superar o skippear el chequeo
+            self.after(0, lambda: self.pb.config(value=10))
+            time.sleep(0.2)
+            
+            
+            
             tasks = [
                 ("Conectando con el servidor...", self.config_api.get_all_ministries, 30),
                 ("Cargando niveles de consolidación...", self.config_api.get_all_consolidations, 60),
