@@ -58,7 +58,6 @@ def _build_main_window():
         def _load_data_async(self):
             """Checklist de carga para asegurar que Render despertó y los datos están listos."""
             
-
             self.after(0, lambda: self.status_lbl.config(text="Buscando actualizaciones..."))
                 
             version_url = "https://renuevochurch.onrender.com/api/version" 
@@ -74,27 +73,36 @@ def _build_main_window():
                             text=f"Nueva versión {latest_version} detectada. Descargando...", fg="#7A4A97"
                         ))
                             
-                        temp_dir = os.environ.get("TEMP", os.path.expanduser("~"))
-                        installer_path = os.path.join(temp_dir, "RenuevoChurch_Setup_Update.exe")
+                        # Configuración multiplataforma para el directorio temporal
+                        if os.name == "nt":  # Windows
+                            temp_dir = os.environ.get("TEMP", os.path.expanduser("~"))
+                            installer_path = os.path.join(temp_dir, "RenuevoChurch_Setup_Update.exe")
+                        else:  # Linux / MacOS
+                            temp_dir = "/tmp"
+                            installer_path = os.path.join(temp_dir, "RenuevoChurch_Update.sh")
                             
                         urllib.request.urlretrieve(download_url, installer_path)
+                        
+                        if os.name != "nt":
+                            os.chmod(installer_path, 0o755)
                             
                         self.after(0, lambda: self.status_lbl.config(text="Instalando y reiniciando...", fg="green"))
                         time.sleep(1)
                             
-                        subprocess.Popen([installer_path, "/SILENT"]) 
+                        if os.name == "nt":
+                            subprocess.Popen([installer_path, "/SILENT"])
+                        else:
+                            subprocess.Popen(["gnome-terminal", "--", installer_path]) 
                             
                         self.after(0, sys.exit)
                         return
             except Exception as version_err:
                 print(f"No se pudo chequear actualizaciones (offline/timeout): {version_err}")
                 
-            # Actualizamos barra inicial tras superar o skippear el chequeo
             self.after(0, lambda: self.pb.config(value=10))
             time.sleep(0.2)
             
-            
-            
+            # --- EL BLOQUE DE CARGA QUEDA UNA SOLA VEZ ---
             tasks = [
                 ("Conectando con el servidor...", self.config_api.get_all_ministries, 30),
                 ("Cargando niveles de consolidación...", self.config_api.get_all_consolidations, 60),
@@ -104,36 +112,23 @@ def _build_main_window():
 
             try:
                 for i, (msg, func, progress_val) in enumerate(tasks):
-                    # Actualizar texto en UI
                     self.after(0, lambda m=msg: self.status_lbl.config(text=m))
-                    
-                    # Ejecutar petición real
                     if func:
                         func() 
-                    
-                    # Actualizar barra
                     self.after(0, lambda v=progress_val: self.pb.config(value=v))
-                    
-                    # Pequeña pausa visual para que no sea un parpadeo
                     time.sleep(0.4)
 
-                # Todo listo, abrir App
                 self.after(0, self._finish_initialization)
                 
             except Exception as e:
                 print(f"Error durante la carga: {e}")
-                # Si falla algo, intentamos abrir igual después de un aviso
                 self.after(0, lambda: self.status_lbl.config(text="Error de conexión. Reintentando...", fg="red"))
                 time.sleep(2)
                 self.after(0, self._finish_initialization)
 
         def _finish_initialization(self):
             self.splash.destroy()
-            
-            # Construimos la UI real
             self._build_ui()
-            
-            # Maximizar y mostrar
             try:
                 self.state("zoomed")
             except:
@@ -168,7 +163,6 @@ def _build_main_window():
 
             self.frames = {}
 
-            # Instanciación de Frames (ahora los datos ya estarán en cache/memoria)
             self.frames["search"] = SearchPersonFrame(container, self.people_api, self.config_api)
             self.frames["add"] = AddPersonFrame(
                 container, self.people_api, self.config_api,
@@ -180,16 +174,13 @@ def _build_main_window():
             )
             self.frames["config"] = ConfigurationFrame(container, self.config_api)
 
-            # Callbacks de refresco
             config_f = self.frames["config"]
             for key in ["add", "modify", "search"]:
                 if key in self.frames:
                     config_f._register_refresh_callback(self.frames[key].refresh_dropdowns)
 
-            # Enlace Search -> Modify
             self.frames["search"]._open_modify_cb = self._open_modify
 
-            # Posicionar frames
             for frame in self.frames.values():
                 frame.place(relx=0, rely=0, relwidth=1, relheight=1)
 
