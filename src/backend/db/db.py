@@ -175,6 +175,7 @@ class Database:
     def _apply_migrations(self) -> None:
         """Apply any pending database migrations."""
         if self._is_sqlite:
+            # --- SQLite: Migraciones de la tabla 'person' ---
             try:
                 with self.get_connection() as conn:
                     cursor = conn.execute("PRAGMA table_info(person)")
@@ -189,9 +190,15 @@ class Database:
                             ON DELETE SET NULL
                             """
                         )
+                    
+                    if "trusted_person_info" not in columns:
+                        conn.execute("ALTER TABLE person ADD COLUMN trusted_person_info TEXT")
+                        # Limpiamos los ceros históricos si existían para que no ensucien la interfaz
+                        conn.execute("UPDATE person SET trusted_person_info = NULL WHERE trusted_person_info = '0'")
             except Exception:
                 pass
 
+            # --- SQLite: Migraciones de la tabla 'person_ministry' ---
             try:
                 with self.get_connection() as conn:
                     conn.execute(
@@ -206,21 +213,20 @@ class Database:
                         """
                     )
 
-                    # Check if id column exists, if not add it
                     cursor = conn.execute("PRAGMA table_info(person_ministry)")
                     columns = {row[1] for row in cursor.fetchall()}
                     if "id" not in columns:
                         conn.execute("ALTER TABLE person_ministry ADD COLUMN id INTEGER PRIMARY KEY AUTOINCREMENT")
-                        # Migrate data if needed, but since it's new, probably empty
             except Exception:
                 pass
 
             return
 
-        # PostgreSQL migrations
+        # --- PostgreSQL migrations ---
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cur:
+                    # Verificación de 'ministry_id'
                     cur.execute(
                         """
                         SELECT column_name
@@ -236,6 +242,19 @@ class Database:
                             ADD COLUMN ministry_id INTEGER REFERENCES ministry(ministry_id) ON DELETE SET NULL
                             """
                         )
+
+                    # Verificación de 'trusted_person_info'
+                    cur.execute(
+                        """
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'person'
+                          AND column_name = 'trusted_person_info'
+                        """
+                    )
+                    if cur.fetchone() is None:
+                        cur.execute("ALTER TABLE person ADD COLUMN trusted_person_info TEXT")
+                        cur.execute("UPDATE person SET trusted_person_info = NULL WHERE trusted_person_info = '0'")
 
                     # Check if person_ministry table needs migration
                     try:
@@ -268,7 +287,6 @@ class Database:
                     )
         except Exception:
             pass
-
 
 def _get_schema_statements(backend: str) -> List[str]:
     """Return the CREATE TABLE statements for the application schema."""
@@ -339,7 +357,7 @@ def _get_schema_statements(backend: str) -> List[str]:
         CREATE TABLE IF NOT EXISTS person (
             person_id {pk},
             address_id INTEGER REFERENCES address(address_id) ON DELETE SET NULL,
-            trusted_person_id INTEGER REFERENCES person(person_id) ON DELETE SET NULL,
+            trusted_person_info TEXT,
             ministry_area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,
             consolidation_id INTEGER REFERENCES consolidation(consolidation_id) ON DELETE SET NULL,
             future_ministry_area_id INTEGER REFERENCES ministry_area(area_id) ON DELETE SET NULL,

@@ -496,7 +496,7 @@ def create_person(payload: Dict) -> int:
     """Insert a new person and optionally an address."""
     addr_id = None
     int_fields = {
-        "house_number", "cdb", "trusted_person_id", "ministry_id",
+        "house_number", "cdb", "ministry_id",
         "ministry_area_id", "consolidation_id", "future_ministry_area_id",
     }
 
@@ -527,7 +527,7 @@ def create_person(payload: Dict) -> int:
     person_fields = (
         "first_name", "last_name", "email", "birthdate", "gender",
         "dni", "phone_number", "marital_status", "social_security",
-        "baptized", "cdb", "trusted_person_id", "ministry_id",
+        "baptized", "cdb", "trusted_person_info", "ministry_id",
         "ministry_area_id", "consolidation_id", "future_ministry_area_id",
     )
 
@@ -559,7 +559,6 @@ def update_person(person_id: int, payload: Dict) -> bool:
     int_fields = {
         "house_number",
         "cdb",
-        "trusted_person_id",
         "ministry_id",
         "ministry_area_id",
         "consolidation_id",
@@ -637,7 +636,7 @@ def update_person(person_id: int, payload: Dict) -> bool:
         "social_security",
         "baptized",
         "cdb",
-        "trusted_person_id",
+        "trusted_person_info",
         "ministry_id",
         "ministry_area_id",
         "consolidation_id",

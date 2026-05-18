@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 import logging
 
 from src.backend.services import people as service
-from src.backend.api.schemas.person_schema import Membership, PersonCreate
+from src.backend.api.schemas.person_schema import Membership, PersonCreate, PersonUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +70,25 @@ def get_person(person_id: int):
 # -----------------------------------
 @router.put("/{person_id}")
 def update_person(person_id: int, payload: dict):
+    
+    try:
+        data = payload.model_dump(exclude_unset=True)
+        memberships = data.pop("memberships", None)
 
-    ok = service.update_person(person_id, payload)
+        ok = service.update_person(person_id, data)
 
-    if not ok:
-        raise HTTPException(status_code=404, detail="Person not found")
+        if not ok:
+            raise HTTPException(status_code=404, detail="Person not found")
 
-    return {"status": "updated"}
+        if memberships is not None:
+            service.update_person_memberships(
+                person_id,
+                [m.model_dump() for m in memberships],
+            )
+
+        return {"status": "updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # -----------------------------------

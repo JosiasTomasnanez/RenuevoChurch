@@ -31,6 +31,7 @@ class PersonCreate(BaseModel):
     baptized: Optional[bool] = None
     cdb: Optional[int] = None
     consolidation_id: Optional[int] = None
+    trusted_person_info: Optional[str] = None
 
     street: Optional[str] = None
     house_number: Optional[int] = None
@@ -58,6 +59,7 @@ class PersonUpdate(BaseModel):
     baptized: Optional[bool] = None
     cdb: Optional[int] = None
     consolidation_id: Optional[int] = None
+    trusted_person_info: Optional[str] = None
 
     street: Optional[str] = None
     house_number: Optional[int] = None
@@ -80,6 +82,7 @@ class PersonResponse(BaseModel):
     email: Optional[str] = None
     dni: Optional[str] = None
     phone_number: Optional[str] = None
+    trusted_person_info: Optional[str] = None
 
     street: Optional[str] = None
     house_number: Optional[str] = None

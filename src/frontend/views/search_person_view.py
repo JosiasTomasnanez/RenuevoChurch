@@ -19,12 +19,14 @@ class SearchPersonFrame(BaseFrame):
         
         # Columnas disponibles
         self._all_cols = (
-            "person_id", "first_name", "last_name","gender","marital_status", "dni","birthdate","age", "neighborhood", 
-            "phone_number", "baptized", "cdb", "consolidation_id"
+            "person_id", "first_name", "last_name","gender","marital_status", "dni","social_security","birthdate","age", "neighborhood", 
+            "phone_number","trusted_person_info", "baptized", "cdb", "consolidation_id"
         )
         self._headers = {
             "person_id": "ID", "first_name": "Nombre", "last_name": "Apellido",
-            "gender": "Género","marital_status": "Estado Civil", "dni": "DNI", "birthdate": "Fec. Nac.", "age": "Edad", "neighborhood": "Barrio", "phone_number": "Teléfono",
+            "gender": "Género","marital_status": "Estado Civil", "dni": "DNI",
+            "social_security": "Obra Social", "birthdate": "Fec. Nac.", "age": "Edad",
+            "neighborhood": "Barrio", "phone_number": "Teléfono","trusted_person_info": "Contacto de Emergencia",
             "baptized": "Bautizado", "cdb": "CDB", "consolidation_id": "Consolidación"
         }
         
@@ -167,7 +169,10 @@ class SearchPersonFrame(BaseFrame):
             addr = p.get("address")
             if isinstance(addr, dict): 
                 val = addr.get(col)
-    
+                
+        if col == "social_security":
+            return val if val else "No tiene"
+        
         if col == "consolidation_id" and val:
             obj = self.drop_helper.find_consolidation_by_id(val)
             return obj["level"] if obj else f"ID: {val}"

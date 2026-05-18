@@ -217,7 +217,7 @@ def _validate_person_payload(payload: dict):
     """Valida y normaliza la coherencia de los datos. Lanza ValueError si falla."""
 
     # 1. Normalización de campos de texto
-    text_fields = ["first_name", "last_name", "neighborhood", "street", "email"]
+    text_fields = ["first_name", "last_name", "neighborhood", "street", "email","trusted_person_info"]
     
     for field in text_fields:
         val = payload.get(field)
