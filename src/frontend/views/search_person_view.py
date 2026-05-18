@@ -17,6 +17,9 @@ class SearchPersonFrame(BaseFrame):
         
         self.drop_helper = ConfigDropdownHelper(self.config_service)
         
+        # Control de la vista inferior: "ministry" u "occupation"
+        self.current_view = "ministry"
+        
         # Columnas disponibles
         self._all_cols = (
             "person_id", "first_name", "last_name","gender","marital_status","membership_status",  "dni","social_security","birthdate","age", "neighborhood", 
@@ -87,11 +90,38 @@ class SearchPersonFrame(BaseFrame):
         self.tree_container.pack(fill="both", expand=True, padx=6)
         self._create_tree()
 
-        # --- DETAILS ---
-        self.details_frame = tk.LabelFrame(self, text=" Ministerios en los que participa ", bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
-        self.details_frame.pack(fill="x", padx=6, pady=10)
+        # --- CONTENEDOR DE DETALLES (Abajo) ---
+        bottom_container = tk.Frame(self, bg=self.BG_PRIMARY)
+        bottom_container.pack(fill="x", padx=6, pady=10)
+
+        self.details_frame = tk.LabelFrame(bottom_container, text=" Ministerios en los que participa ", bg=self.BG_PRIMARY, fg=self.TEXT_DARK)
+        self.details_frame.pack(side="left", fill="x", expand=True)
+        
         self.details_list = tk.Listbox(self.details_frame, height=3, bg=self.BG_INPUT, relief="flat")
         self.details_list.pack(fill="x", padx=5, pady=5)
+
+        # Botón para alternar la vista (Corregido con anchor="center")
+        self.toggle_view_btn = tk.Button(
+            bottom_container, 
+            text="Ver Ocupación ⇄", 
+            command=self._toggle_bottom_view, 
+            bg=self.BTN_COLOR, 
+            fg="white"
+        )
+        self.toggle_view_btn.pack(side="right", padx=10, anchor="center")
+
+    def _toggle_bottom_view(self):
+        """Alterna el estado de la vista inferior y refresca el contenido de la lista."""
+        if self.current_view == "ministry":
+            self.current_view = "occupation"
+            self.details_frame.config(text=" Ocupaciones de la persona ")
+            self.toggle_view_btn.config(text="Ver Ministerio ⇄")
+        else:
+            self.current_view = "ministry"
+            self.details_frame.config(text=" Ministerios en los que participa ")
+            self.toggle_view_btn.config(text="Ver Ocupación ⇄")
+        
+        self._on_tree_select()
 
     def _create_tree(self):
         if hasattr(self, 'tree'): self.tree.destroy()
@@ -117,7 +147,6 @@ class SearchPersonFrame(BaseFrame):
             values = [self._get_formatted_value(p, col) for col in visible_cols]
             self.tree.insert("", "end", iid=str(p["person_id"]), values=values)
 
-
     def _on_tree_select(self, event=None):
         sel = self.tree.selection()
         if not sel:
@@ -126,27 +155,36 @@ class SearchPersonFrame(BaseFrame):
         
         self.modify_btn.config(state="normal")
         self.details_list.delete(0, tk.END)
+        
         try:
             pid = int(sel[0])
-            mems = self.controller.get_memberships(pid) or []
-            if not mems: self.details_list.insert(tk.END, "Sin asignaciones")
-            for m in mems:
-                txt = f"• {m['ministry']['name']}"
-                if m.get('area'): txt += f" / {m['area']['area']}"
-                self.details_list.insert(tk.END, txt)
-        except: pass
-
+            
+            if self.current_view == "ministry":
+                mems = self.controller.get_memberships(pid) or []
+                if not mems: 
+                    self.details_list.insert(tk.END, "Sin asignaciones de ministerio")
+                for m in mems:
+                    txt = f"• {m['ministry']['name']}"
+                    if m.get('area'): txt += f" / {m['area']['area']}"
+                    self.details_list.insert(tk.END, txt)
+                    
+            elif self.current_view == "occupation":
+                occups = self.controller.get_occupations(pid) or []
+                if not occups:
+                    self.details_list.insert(tk.END, "Sin ocupaciones registradas")
+                for o in occups:
+                    txt = f"• {o.get('name', 'Ocupación sin nombre')}" 
+                    self.details_list.insert(tk.END, txt)
+                    
+        except Exception as e: 
+            print(f"Error al cargar detalles inferiores: {e}")
 
     def refresh_dropdowns(self):
         self.drop_helper.refresh_all()
         self._on_search()
 
- 
- 
- 
     def _get_formatted_value(self, p, col):
         """Extrae y formatea valores, incluyendo el cálculo de edad al vuelo."""
-    
         if col == "age":
             bday = p.get("birthdate")
             if not bday: 
@@ -163,9 +201,7 @@ class SearchPersonFrame(BaseFrame):
             except:
                 return ""
 
-  
         val = p.get(col)
-    
         if val is None:
             addr = p.get("address")
             if isinstance(addr, dict): 
@@ -199,8 +235,6 @@ class SearchPersonFrame(BaseFrame):
                 return val
             
         return val if val is not None else ""
- 
- 
 
     def _apply_filters(self, results):
         """Aplica los filtros activos de forma segura."""
@@ -208,7 +242,6 @@ class SearchPersonFrame(BaseFrame):
         res = results
         
         if f["neighborhood"]:
-            # Filtro seguro para barrios (considerando que address puede ser None)
             res = [p for p in res if isinstance(p.get("address"), dict) and p["address"].get("neighborhood") == f["neighborhood"]]
         
         if f["cdb"]:
@@ -236,11 +269,9 @@ class SearchPersonFrame(BaseFrame):
         sel = self.tree.selection()
         if not sel:
             return
-        
         try:
-            pid = int(sel[0]) # El iid que pusimos en el insert
+            pid = int(sel[0])
             if self._open_modify_cb:
-                # Llamamos al callback. En el main esto ejecutará _open_modify(pid)
                 self._open_modify_cb(pid) 
         except Exception as e:
             print(f"Error al intentar modificar: {e}")
@@ -260,7 +291,6 @@ class SearchPersonFrame(BaseFrame):
             all_p = self.controller.search_people("")
             neighborhoods = set()
             for p in all_p:
-                # CHEQUEO SEGURO DE DIRECCIÓN
                 addr = p.get("address")
                 if isinstance(addr, dict):
                     barrio = addr.get("neighborhood")
@@ -293,8 +323,6 @@ class SearchPersonFrame(BaseFrame):
                 options = ["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a"]
         for o in options: 
             lb.insert(tk.END, o)
-        
-        
 
         def apply():
             selection = lb.curselection()

@@ -3,7 +3,7 @@ from src.frontend.views._base import BaseFrame, tk, messagebox, ttk
 from src.frontend.helpers.config_table_helper import ConfigTableHelper
 
 class ConfigurationFrame(BaseFrame):
-    """Frame for managing application configuration (ministries, areas, consolidation, CDB)."""
+    """Frame for managing application configuration (ministries, areas, consolidation, CDB, occupations)."""
     
     def __init__(self, master, config_service, **kwargs):
         super().__init__(master, **kwargs)
@@ -24,6 +24,7 @@ class ConfigurationFrame(BaseFrame):
         self._build_cdb_tab(notebook)
         self._build_marital_status_tab(notebook)
         self._build_membership_status_tab(notebook)
+        self._build_occupations_tab(notebook) # <-- Agregada a la botonera general
 
     def _on_config_changed(self):
         """Se llama cuando cualquier tabla cambia para refrescar combos y avisar a otros."""
@@ -35,6 +36,39 @@ class ConfigurationFrame(BaseFrame):
     def _register_refresh_callback(self, callback):
         if callback not in self._refresh_callbacks:
             self._refresh_callbacks.append(callback)
+
+    def _build_occupations_tab(self, notebook):
+        """Pestaña para gestionar las Ocupaciones de forma idéntica al resto de enums."""
+        frame = ttk.Frame(notebook)
+        notebook.add(frame, text="Ocupaciones")
+        
+        input_frame = tk.Frame(frame)
+        input_frame.pack(fill="x", padx=6, pady=6)
+        
+        tk.Label(input_frame, text="Nombre:").pack(side="left")
+        entry = tk.Entry(input_frame, width=40)
+        entry.pack(side="left", padx=6)
+        
+        listbox = tk.Listbox(frame, width=50, height=15)
+        listbox.pack(padx=6, pady=6, fill="both", expand=True)
+
+        self.occupation_helper = ConfigTableHelper(
+            label="Ocupación",
+            entry_widget=entry,
+            listbox_widget=listbox,
+            on_get_items=self.config_service.get_all_occupations,
+            on_add=self.config_service.create_occupation,
+            on_update=lambda id, val: None,
+            on_delete=self.config_service.delete_occupation,
+            display_key="name",
+            item_id_key="occupation_id", # <-- CAMBIAR ACÁ: de "id" a "occupation_id"
+            on_change=self._on_config_changed
+        )
+
+        tk.Button(input_frame, text="Agregar", command=self.occupation_helper.add).pack(side="left")
+        tk.Button(input_frame, text="Eliminar", command=self.occupation_helper.delete, bg="#c0392b", fg="white").pack(side="left")
+        
+        self.occupation_helper.refresh_list()
 
     def _build_marital_status_tab(self, notebook):
         frame = ttk.Frame(notebook)

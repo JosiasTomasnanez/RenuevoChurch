@@ -166,3 +166,17 @@ def update_memberships(
     except Exception as e:
         logger.error(f"Error updating memberships for person {person_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+    
+# -----------------------------------
+# Get occupations for person
+# -----------------------------------
+@router.get("/{person_id}/occupations")
+def get_occupations(person_id: int):
+    try:
+        # Intentamos llamar al servicio del backend para traer las ocupaciones de la persona
+        return service.get_occupations_for_person(person_id)
+    except AttributeError:
+        # Por si acaso el método aún no existe en el service, tiramos una alerta limpia
+        raise HTTPException(status_code=501, detail="El método get_occupations_for_person no está implementado en el servicio")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
