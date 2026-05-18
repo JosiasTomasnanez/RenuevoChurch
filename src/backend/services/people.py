@@ -282,3 +282,14 @@ def _validate_person_payload(payload: dict):
         raise ValueError("El nombre y el apellido son obligatorios.")
 
     return payload
+
+# =========================================================================
+# ALIAS PARA EL ROUTER (Evita el error 501)
+# =========================================================================
+
+def get_occupations_for_person(person_id: int) -> List[dict]:
+    """Alias para resolver la petición del router de personas."""
+    return get_person_occupations(person_id)
+
+
+__all__.append("get_occupations_for_person")
