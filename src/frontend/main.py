@@ -18,7 +18,7 @@ from src.frontend.views.person_view import (
 )
 from src.frontend.views.config_view import ConfigurationFrame
 
-CURRENT_VERSION = "1.0.0"
+CURRENT_VERSION = "1.0.1"
 
 def _build_main_window():
     """Create and return a configured Tk main window instance."""
