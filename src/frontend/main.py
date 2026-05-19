@@ -18,7 +18,7 @@ from src.frontend.views.person_view import (
 )
 from src.frontend.views.config_view import ConfigurationFrame
 
-CURRENT_VERSION = "1.0.1"
+CURRENT_VERSION = "1.0.0"
 
 def _build_main_window():
     """Create and return a configured Tk main window instance."""
@@ -57,26 +57,19 @@ def _build_main_window():
 
         def _load_data_async(self):
             """Checklist de carga para asegurar que Render despertó y los datos están listos."""
-            
-            # --- PASO 1: DESPERTAR AL SERVIDOR Y CARGAR MINISTRIOS ---
-            # Usamos esta tarea inicial para obligar a Render a salir de la hibernación.
-            # Como tus APIs ya manejan la espera y reconexión, la app no se romperá por timeout corto.
             self.after(0, lambda: self.status_lbl.config(text="Conectando con el servidor..."))
             try:
                 self.config_api.get_all_ministries()
             except Exception as e:
                 print(f"Error al despertar el servidor: {e}")
-                # Si falla catastróficamente la conexión inicial, igual intentamos seguir
             
             self.after(0, lambda: self.pb.config(value=25))
             time.sleep(0.2)
 
-            # --- PASO 2: CHEQUEAR ACTUALIZACIONES (Ahora que el servidor está despierto) ---
             self.after(0, lambda: self.status_lbl.config(text="Buscando actualizaciones..."))
             version_url = "https://renuevochurch.onrender.com/api/version" 
                 
             try:
-                # Al estar despierto Render, 5 segundos de timeout son más que suficientes
                 with urllib.request.urlopen(version_url, timeout=5) as response:
                     data = json.loads(response.read().decode())
                     latest_version = data.get("latest_version")
@@ -115,7 +108,6 @@ def _build_main_window():
             self.after(0, lambda: self.pb.config(value=40))
             time.sleep(0.2)
             
-            # --- PASO 3: COMPLETAR EL RESTO DE LAS TAREAS DE CARGA ---
             tasks = [
                 ("Cargando niveles de consolidación...", self.config_api.get_all_consolidations, 70),
                 ("Sincronizando base de datos de personas...", self.people_api.get_all_people, 90),
@@ -152,9 +144,9 @@ def _build_main_window():
             top = tk.Frame(self)
             top.pack(side="top", fill="x", pady=8)
 
+            # Botón configurar limpio de colores forzados
             self.btn_config = tk.Button(
-                top, text="Configurar", command=lambda: self.show("config"),
-                width=12, fg="darkblue"
+                top, text="Configurar", command=lambda: self.show("config"), width=12
             )
             self.btn_config.pack(side="left", padx=8)
 
