@@ -58,11 +58,25 @@ def _build_main_window():
         def _load_data_async(self):
             """Checklist de carga para asegurar que Render despertó y los datos están listos."""
             
+            # --- PASO 1: DESPERTAR AL SERVIDOR Y CARGAR MINISTRIOS ---
+            # Usamos esta tarea inicial para obligar a Render a salir de la hibernación.
+            # Como tus APIs ya manejan la espera y reconexión, la app no se romperá por timeout corto.
+            self.after(0, lambda: self.status_lbl.config(text="Conectando con el servidor..."))
+            try:
+                self.config_api.get_all_ministries()
+            except Exception as e:
+                print(f"Error al despertar el servidor: {e}")
+                # Si falla catastróficamente la conexión inicial, igual intentamos seguir
+            
+            self.after(0, lambda: self.pb.config(value=25))
+            time.sleep(0.2)
+
+            # --- PASO 2: CHEQUEAR ACTUALIZACIONES (Ahora que el servidor está despierto) ---
             self.after(0, lambda: self.status_lbl.config(text="Buscando actualizaciones..."))
-                
             version_url = "https://renuevochurch.onrender.com/api/version" 
                 
             try:
+                # Al estar despierto Render, 5 segundos de timeout son más que suficientes
                 with urllib.request.urlopen(version_url, timeout=5) as response:
                     data = json.loads(response.read().decode())
                     latest_version = data.get("latest_version")
@@ -73,7 +87,6 @@ def _build_main_window():
                             text=f"Nueva versión {latest_version} detectada. Descargando...", fg="#7A4A97"
                         ))
                             
-                        # Configuración multiplataforma para el directorio temporal
                         if os.name == "nt":  # Windows
                             temp_dir = os.environ.get("TEMP", os.path.expanduser("~"))
                             installer_path = os.path.join(temp_dir, "RenuevoChurch_Setup_Update.exe")
@@ -99,13 +112,12 @@ def _build_main_window():
             except Exception as version_err:
                 print(f"No se pudo chequear actualizaciones (offline/timeout): {version_err}")
                 
-            self.after(0, lambda: self.pb.config(value=10))
+            self.after(0, lambda: self.pb.config(value=40))
             time.sleep(0.2)
             
-            # --- EL BLOQUE DE CARGA QUEDA UNA SOLA VEZ ---
+            # --- PASO 3: COMPLETAR EL RESTO DE LAS TAREAS DE CARGA ---
             tasks = [
-                ("Conectando con el servidor...", self.config_api.get_all_ministries, 30),
-                ("Cargando niveles de consolidación...", self.config_api.get_all_consolidations, 60),
+                ("Cargando niveles de consolidación...", self.config_api.get_all_consolidations, 70),
                 ("Sincronizando base de datos de personas...", self.people_api.get_all_people, 90),
                 ("Finalizando configuración...", None, 100)
             ]
