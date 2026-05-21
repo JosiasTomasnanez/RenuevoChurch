@@ -471,6 +471,7 @@ class ModifyPersonFrame(BaseFrame):
         self.person_id = None
 
     def refresh_dropdowns(self):
+        # Compat: refresca todo
         self.drop_helper.refresh_all()
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
@@ -488,6 +489,49 @@ class ModifyPersonFrame(BaseFrame):
 
         self.membership_editor.refresh_ministry_combo() 
         self._refresh_occupations_combo() # NUEVO: Refresca el combobox en cambios globales
+
+    # --- Métodos de refresh dirigidos para suscripción a eventos ---
+    def refresh_cdb_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_cdb_cache()
+            self.drop_helper.fill_cdbs(self.combos["cdb"])
+        except Exception:
+            pass
+
+    def refresh_consolidations_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_consolidation_cache()
+            self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
+        except Exception:
+            pass
+
+    def refresh_marital_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_marital_cache()
+            try:
+                statuses = [s["name"] for s in self.config_service.get_marital_statuses()]
+                self.combos["marital_status"]["values"] = statuses
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def refresh_membership_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_membership_cache()
+            try:
+                ms = [m["name"] for m in self.config_service.get_membership_statuses()]
+                self.combos["membership_status"]["values"] = ms
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def refresh_occupations(self, payload=None):
+        try:
+            self._refresh_occupations_combo()
+        except Exception:
+            pass
 
     def load_person_by_id(self, person_id: int):
         self._clear_form()

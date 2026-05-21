@@ -17,6 +17,7 @@ from src.frontend.views.person_view import (
     ModifyPersonFrame,
 )
 from src.frontend.views.config_view import ConfigurationFrame
+from src.frontend.utils.config_manager import ConfigManager
 
 CURRENT_VERSION = "1.0.1"
 
@@ -179,9 +180,28 @@ def _build_main_window():
             self.frames["config"] = ConfigurationFrame(container, self.config_api)
 
             config_f = self.frames["config"]
-            for key in ["add", "modify", "search"]:
-                if key in self.frames:
-                    config_f._register_refresh_callback(self.frames[key].refresh_dropdowns)
+            cm = ConfigManager.get_instance()
+            # Suscribir handlers dirigidos a eventos concretos
+            if "add" in self.frames:
+                cm.subscribe("cdb.updated", self.frames["add"].refresh_cdb_combo)
+                cm.subscribe("consolidation.updated", self.frames["add"].refresh_consolidations_combo)
+                cm.subscribe("occupations.updated", self.frames["add"].refresh_occupations)
+                cm.subscribe("marital.updated", self.frames["add"].refresh_marital_combo)
+                cm.subscribe("membership.updated", self.frames["add"].refresh_membership_combo)
+                cm.subscribe("ministries.updated", self.frames["add"].membership_editor.refresh_ministry_combo)
+
+            if "modify" in self.frames:
+                cm.subscribe("cdb.updated", self.frames["modify"].refresh_cdb_combo)
+                cm.subscribe("consolidation.updated", self.frames["modify"].refresh_consolidations_combo)
+                cm.subscribe("occupations.updated", self.frames["modify"].refresh_occupations)
+                cm.subscribe("marital.updated", self.frames["modify"].refresh_marital_combo)
+                cm.subscribe("membership.updated", self.frames["modify"].refresh_membership_combo)
+                cm.subscribe("ministries.updated", self.frames["modify"].membership_editor.refresh_ministry_combo)
+
+            # Search needs to re-run queries if ministries or areas change
+            if "search" in self.frames:
+                cm.subscribe("ministries.updated", self.frames["search"].refresh_dropdowns)
+                cm.subscribe("areas.updated", self.frames["search"].refresh_dropdowns)
 
             self.frames["search"]._open_modify_cb = self._open_modify
 

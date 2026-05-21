@@ -29,6 +29,37 @@ class ConfigDropdownHelper:
             self._cdb_cache = []
             self._marital_cache = []
 
+    # --- Métodos para refrescar caches individuales (para refresh dirigido) ---
+    def refresh_ministry_cache(self):
+        try:
+            self._ministry_cache = self.config_service.get_all_ministries()
+        except Exception:
+            self._ministry_cache = []
+
+    def refresh_consolidation_cache(self):
+        try:
+            self._consolidation_cache = self.config_service.get_all_consolidations()
+        except Exception:
+            self._consolidation_cache = []
+
+    def refresh_cdb_cache(self):
+        try:
+            self._cdb_cache = self.config_service.get_all_cdb_options()
+        except Exception:
+            self._cdb_cache = []
+
+    def refresh_marital_cache(self):
+        try:
+            self._marital_cache = self.config_service.get_marital_statuses()
+        except Exception:
+            self._marital_cache = []
+
+    def refresh_membership_cache(self):
+        try:
+            self._membership_cache = self.config_service.get_membership_statuses()
+        except Exception:
+            self._membership_cache = []
+
     # --- MÉTODOS PARA LLENAR COMBOS (UI) ---
     def fill_ministries(self, combo):
         if not self._ministry_cache: self._ministry_cache = self.config_service.get_all_ministries()

@@ -315,6 +315,7 @@ class AddPersonFrame(BaseFrame):
 
     def refresh_dropdowns(self):
         """Llamado cuando cambia la configuración global"""
+        # Compat: refresca todo
         self.drop_helper.refresh_all()
         self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
         self.drop_helper.fill_cdbs(self.combos["cdb"])
@@ -322,3 +323,38 @@ class AddPersonFrame(BaseFrame):
         self.drop_helper.fill_membership_statuses(self.combos["membership_status"])
         self.membership_editor.refresh_ministry_combo()
         self._refresh_occupations_combo()
+
+    # --- Métodos de refresh dirigidos para suscripción a eventos ---
+    def refresh_cdb_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_cdb_cache()
+            self.drop_helper.fill_cdbs(self.combos["cdb"])
+        except Exception:
+            pass
+
+    def refresh_consolidations_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_consolidation_cache()
+            self.drop_helper.fill_consolidations(self.combos["consolidation_id"])
+        except Exception:
+            pass
+
+    def refresh_marital_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_marital_cache()
+            self.drop_helper.fill_marital_statuses(self.combos["marital_status"])
+        except Exception:
+            pass
+
+    def refresh_membership_combo(self, payload=None):
+        try:
+            self.drop_helper.refresh_membership_cache()
+            self.drop_helper.fill_membership_statuses(self.combos["membership_status"])
+        except Exception:
+            pass
+
+    def refresh_occupations(self, payload=None):
+        try:
+            self._refresh_occupations_combo()
+        except Exception:
+            pass

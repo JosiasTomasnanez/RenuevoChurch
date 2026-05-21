@@ -1,6 +1,7 @@
 """Configuration UI - manage ministries, areas, consolidation levels, CDB options."""
 from src.frontend.views._base import BaseFrame, tk, messagebox, ttk
 from src.frontend.helpers.config_table_helper import ConfigTableHelper
+from src.frontend.utils.config_manager import ConfigManager
 
 class ConfigurationFrame(BaseFrame):
     """Frame for managing application configuration (ministries, areas, consolidation, CDB, occupations)."""
@@ -62,7 +63,7 @@ class ConfigurationFrame(BaseFrame):
             on_delete=self.config_service.delete_occupation,
             display_key="name",
             item_id_key="occupation_id", # <-- CAMBIAR ACÁ: de "id" a "occupation_id"
-            on_change=self._on_config_changed
+            on_change=lambda: ConfigManager.get_instance().publish("occupations.updated")
         )
 
         tk.Button(input_frame, text="Agregar", command=self.occupation_helper.add).pack(side="left")
@@ -95,7 +96,7 @@ class ConfigurationFrame(BaseFrame):
             on_delete=self.config_service.delete_marital_status,
             display_key="name",
             item_id_key="id",
-            on_change=self._on_config_changed
+            on_change=lambda: ConfigManager.get_instance().publish("marital.updated")
         )
 
         tk.Button(input_frame, text="Agregar", command=self.marital_helper.add).pack(side="left")
@@ -127,7 +128,7 @@ class ConfigurationFrame(BaseFrame):
             on_delete=self.config_service.delete_membership_status,
             display_key="name",
             item_id_key="id",
-            on_change=self._on_config_changed
+            on_change=lambda: ConfigManager.get_instance().publish("membership.updated")
         )
 
         tk.Button(input_frame, text="Agregar", command=self.membership_helper.add).pack(side="left")
@@ -159,7 +160,7 @@ class ConfigurationFrame(BaseFrame):
             on_delete=self.config_service.delete_ministry,
             display_key="name",
             item_id_key="ministry_id",
-            on_change=self._on_config_changed
+            on_change=lambda: (self._refresh_ministry_combo() or ConfigManager.get_instance().publish("ministries.updated"))
         )
 
         tk.Button(input_frame, text="Agregar", command=self.ministry_helper.add).pack(side="left", padx=2)
@@ -196,7 +197,8 @@ class ConfigurationFrame(BaseFrame):
             on_update=self.config_service.update_area,
             on_delete=self.config_service.delete_area,
             display_key="area",
-            item_id_key="area_id"
+            item_id_key="area_id",
+            on_change=lambda: ConfigManager.get_instance().publish("areas.updated")
         )
 
         tk.Button(input_frame, text="Agregar", command=self._add_area_wrapper).pack(side="left")
@@ -264,7 +266,7 @@ class ConfigurationFrame(BaseFrame):
             on_delete=self.config_service.delete_consolidation,
             display_key="level",
             item_id_key="consolidation_id",
-            on_change=self._on_config_changed
+            on_change=lambda: ConfigManager.get_instance().publish("consolidation.updated")
         )
 
         tk.Button(input_frame, text="Agregar", command=helper.add).pack(side="left")
@@ -295,7 +297,7 @@ class ConfigurationFrame(BaseFrame):
             on_delete=self.config_service.delete_cdb,
             display_key="number",
             item_id_key="cdb_id",
-            on_change=self._on_config_changed
+            on_change=lambda: ConfigManager.get_instance().publish("cdb.updated")
         )
 
         tk.Button(input_frame, text="Agregar", command=helper.add).pack(side="left")
