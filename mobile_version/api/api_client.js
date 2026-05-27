@@ -55,5 +55,19 @@ export const ApiClient = {
 
   delete(endpoint) {
     return ApiClient.request(endpoint, { method: "DELETE" });
+  },
+
+
+  async checkMobileVersion() {
+    try {
+      const data = await this.get("/api/version-mobile");
+      return {
+        latestVersion: data.latest_version,
+        downloadUrl: data.download_url,
+      };
+    } catch (error) {
+      console.error("🚨 Falló el chequeo automático de versión móvil:", error.message);
+      return null;
+    }
   }
 };
