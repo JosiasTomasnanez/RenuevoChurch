@@ -37,7 +37,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Buscar',
-          headerTitle: '⛪ Renuevo — Personas',
+          headerTitle: '⛪ Personas',
           tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
         }}
       />
@@ -47,7 +47,7 @@ export default function TabLayout() {
         name="add"
         options={{
           title: 'Agregar',
-          headerTitle: '⛪ Alta de Persona',
+          headerTitle: '➕ Agregar',
           tabBarIcon: ({ color }) => <TabBarIcon name="user-plus" color={color} />,
         }}
       />
@@ -56,9 +56,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="config"
         options={{
-          title: 'Config',
-          headerTitle: '⚙️ Panel de Control',
+          title: 'Configurar',
+          headerTitle: '⚙️ Configurar',
           tabBarIcon: ({ color }) => <TabBarIcon name="cogs" color={color} />,
+        }}
+      />
+
+      {/* ✏️ PESTAÑA 4: MODIFICAR PERSONA */}
+      <Tabs.Screen
+        name="modify"
+        options={{
+          title: 'Modificar',
+          headerTitle: '✏️ Modificar',
+          tabBarIcon: ({ color }) => <TabBarIcon name="edit" color={color} />,
         }}
       />
     </Tabs>

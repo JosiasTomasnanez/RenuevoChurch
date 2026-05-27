@@ -12,7 +12,7 @@ import {
   ScrollView
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { PeopleAPI } from '../../api/people_api';
 import { ConfigAPI } from '../../api/config_api';
 
@@ -43,7 +43,9 @@ export default function SearchScreen() {
     occupations: [] as any[],
     consolidations: [] as any[],
     cdbs: [] as any[],
-    neighborhoods: [] as string[]
+    neighborhoods: [] as string[],
+    marital_statuses: [] as any[],
+    membership_statuses: [] as any[],
   });
 
   const [activeFilters, setActiveFilters] = useState({
@@ -58,6 +60,8 @@ export default function SearchScreen() {
     consolidation_id: '',
     age_range: 'todos' 
   });
+
+  const router = useRouter();
 
   // --- CARGAR DATOS ---
   const loadInitialData = async (showLoadingIndicator = true) => {
@@ -74,11 +78,13 @@ export default function SearchScreen() {
         )
       ) as string[];
 
-      const [minis, occs, cons, cdbs] = await Promise.all([
+      const [minis, occs, cons, cdbs, maritalStatuses, membershipStatuses] = await Promise.all([
         ConfigAPI.getAllMinistries().catch(() => []),
         ConfigAPI.getAllOccupations().catch(() => []),
         ConfigAPI.getAllConsolidations().catch(() => []),
-        ConfigAPI.getAllCdbOptions().catch(() => [])
+        ConfigAPI.getAllCdbOptions().catch(() => []),
+        ConfigAPI.getMaritalStatuses().catch(() => []),
+        ConfigAPI.getMembershipStatuses().catch(() => []),
       ]);
 
       setFilterCatalogs({
@@ -86,7 +92,9 @@ export default function SearchScreen() {
         occupations: occs || [],
         consolidations: cons || [],
         cdbs: cdbs || [],
-        neighborhoods: uniqueNeighborhoods.sort()
+        neighborhoods: uniqueNeighborhoods.sort(),
+        marital_statuses: maritalStatuses || [],
+        membership_statuses: membershipStatuses || [],
       });
 
     } catch (error) {
@@ -153,58 +161,91 @@ export default function SearchScreen() {
 
   // --- MOTOR DE FILTRADO ---
   useEffect(() => {
-    let result = [...allPeople];
+    let isMounted = true;
 
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(p => 
-        (p.first_name && p.first_name.toLowerCase().includes(query)) ||
-        (p.last_name && p.last_name.toLowerCase().includes(query)) ||
-        (p.dni && p.dni.toString().includes(query))
-      );
-    }
+    const applyFilters = async () => {
+      let result = [...allPeople];
 
-    if (activeFilters.neighborhood) {
-      result = result.filter(p => (p.address?.neighborhood || p.neighborhood) === activeFilters.neighborhood);
-    }
-    if (activeFilters.marital_status) {
-      result = result.filter(p => p.marital_status === activeFilters.marital_status);
-    }
-    if (activeFilters.membership_status) {
-      result = result.filter(p => p.membership_status === activeFilters.membership_status);
-    }
-    if (activeFilters.gender) {
-      result = result.filter(p => p.gender === activeFilters.gender);
-    }
-    if (activeFilters.baptized) {
-      const target = activeFilters.baptized === 'Sí';
-      result = result.filter(p => !!p.baptized === target);
-    }
-    if (activeFilters.cdb) {
-      result = result.filter(p => p.cdb?.toString() === activeFilters.cdb.toString());
-    }
-    if (activeFilters.consolidation_id) {
-      result = result.filter(p => p.consolidation_id?.toString() === activeFilters.consolidation_id.toString());
-    }
-    if (activeFilters.age_range !== 'todos') {
-      result = result.filter(p => {
-        const age = calculateAge(p.birthdate);
-        if (age === null) return false;
-        if (activeFilters.age_range === 'jovenes') return age <= 25;
-        if (activeFilters.age_range === 'adultos') return age >= 26 && age <= 50;
-        if (activeFilters.age_range === 'mayores') return age >= 51;
-        return true;
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        result = result.filter(p => 
+          (p.first_name && p.first_name.toLowerCase().includes(query)) ||
+          (p.last_name && p.last_name.toLowerCase().includes(query)) ||
+          (p.dni && p.dni.toString().includes(query)) ||
+          (p.email && p.email.toLowerCase().includes(query))
+        );
+      }
+
+      if (activeFilters.ministry) {
+        try {
+          const peopleByMinistry = await PeopleAPI.getPeopleByMinistry(Number(activeFilters.ministry));
+          const allowedIds = new Set((peopleByMinistry || []).map((p: any) => (p.person_id || p.id)?.toString()));
+          result = result.filter(p => allowedIds.has((p.person_id || p.id || '').toString()));
+        } catch (error) {
+          console.log('Error filtrando por ministerio:', error);
+        }
+      }
+
+      if (activeFilters.occupation) {
+        try {
+          const peopleByOccupation = await PeopleAPI.getPeopleByOccupation(Number(activeFilters.occupation));
+          const allowedIds = new Set((peopleByOccupation || []).map((p: any) => (p.person_id || p.id)?.toString()));
+          result = result.filter(p => allowedIds.has((p.person_id || p.id || '').toString()));
+        } catch (error) {
+          console.log('Error filtrando por ocupación:', error);
+        }
+      }
+
+      if (activeFilters.neighborhood) {
+        result = result.filter(p => (p.address?.neighborhood || p.neighborhood) === activeFilters.neighborhood);
+      }
+      if (activeFilters.marital_status) {
+        result = result.filter(p => p.marital_status === activeFilters.marital_status);
+      }
+      if (activeFilters.membership_status) {
+        result = result.filter(p => p.membership_status === activeFilters.membership_status);
+      }
+      if (activeFilters.gender) {
+        result = result.filter(p => p.gender === activeFilters.gender);
+      }
+      if (activeFilters.baptized) {
+        const target = activeFilters.baptized === 'Sí';
+        result = result.filter(p => !!p.baptized === target);
+      }
+      if (activeFilters.cdb) {
+        result = result.filter(p => p.cdb?.toString() === activeFilters.cdb.toString());
+      }
+      if (activeFilters.consolidation_id) {
+        result = result.filter(p => p.consolidation_id?.toString() === activeFilters.consolidation_id.toString());
+      }
+      if (activeFilters.age_range !== 'todos') {
+        result = result.filter(p => {
+          const age = calculateAge(p.birthdate);
+          if (age === null) return false;
+          if (activeFilters.age_range === 'jovenes') return age <= 25;
+          if (activeFilters.age_range === 'adultos') return age >= 26 && age <= 50;
+          if (activeFilters.age_range === 'mayores') return age >= 51;
+          return true;
+        });
+      }
+
+      result.sort((a, b) => {
+        const lnA = (a.last_name || '').toLowerCase();
+        const lnB = (b.last_name || '').toLowerCase();
+        if (lnA !== lnB) return lnA.localeCompare(lnB);
+        return (a.first_name || '').toLowerCase().localeCompare((b.first_name || '').toLowerCase());
       });
-    }
 
-    result.sort((a, b) => {
-      const lnA = (a.last_name || '').toLowerCase();
-      const lnB = (b.last_name || '').toLowerCase();
-      if (lnA !== lnB) return lnA.localeCompare(lnB);
-      return (a.first_name || '').toLowerCase().localeCompare((b.first_name || '').toLowerCase());
-    });
+      if (isMounted) {
+        setDisplayedPeople(result);
+      }
+    };
 
-    setDisplayedPeople(result);
+    applyFilters();
+
+    return () => {
+      isMounted = false;
+    };
   }, [searchQuery, allPeople, activeFilters]);
 
   // --- MANEJO DE SELECCIÓN MEJORADO CON RESOLUCIÓN POR CATÁLOGO ---
@@ -220,76 +261,41 @@ export default function SearchScreen() {
     setLoadingFilters(true);
 
     try {
-      const fullProfile = await PeopleAPI.getPerson(personId);
+      const [fullProfile, memberships, occupations] = await Promise.all([
+        PeopleAPI.getPerson(personId),
+        PeopleAPI.getPersonMemberships(personId).catch(() => []),
+        PeopleAPI.getPersonOccupations(personId).catch(() => []),
+      ]);
+
       setExpandedPersonData(fullProfile);
 
-      // ======================================================
-      // RESOLUCIÓN SEGURO DE MINISTERIOS
-      // ======================================================
-      let finalMinistries: any[] = [];
-      
-      // Capturamos el id o entidad cruda del ministerio
-      const targetMinistryId = fullProfile?.ministry_id || fullProfile?.ministry?.id || fullProfile?.ministry;
+      const finalMinistries: any[] = Array.isArray(memberships)
+        ? memberships.map((membership: any) => ({
+            ...membership,
+            name:
+              membership.ministry?.name ||
+              membership.ministry_name ||
+              (typeof membership.ministry === 'string' ? membership.ministry : undefined) ||
+              `Ministerio ID: ${membership.ministry_id || membership.ministry}`,
+            area: membership.area || null,
+          }))
+        : [];
 
-      if (targetMinistryId) {
-        // Cruzamos con el catálogo global que cargamos en ConfigAPI
-        const matchedMinistry = filterCatalogs.ministries.find(
-          (m: any) => m.id?.toString() === targetMinistryId.toString()
-        );
-
-        if (matchedMinistry) {
-          finalMinistries.push({
-            ...matchedMinistry,
-            area: fullProfile.ministry_area || null
-          });
-        } else if (typeof targetMinistryId === 'object' && targetMinistryId !== null) {
-          finalMinistries.push(targetMinistryId);
-        } else {
-          finalMinistries.push({ name: `Ministerio Asignado (ID: ${targetMinistryId})` });
-        }
-      } else if (Array.isArray(fullProfile?.ministries)) {
-        finalMinistries = fullProfile.ministries;
-      } else if (Array.isArray(fullProfile?.ministerios)) {
-        finalMinistries = fullProfile.ministerios;
-      }
-
-      // Si hay un área global asociada en la raíz, se la inyectamos a los elementos mapeados
-      if (fullProfile?.ministry_area && finalMinistries.length > 0) {
-        finalMinistries = finalMinistries.map(m => ({
-          ...(typeof m === 'object' ? m : { name: m }),
-          area: fullProfile.ministry_area
-        }));
-      }
-
-      // ======================================================
-      // RESOLUCIÓN SEGURO DE OCUPACIONES
-      // ======================================================
-      let finalOccupations: any[] = [];
-      
-      const targetOccupationId = fullProfile?.occupation_id || fullProfile?.occupation?.id || fullProfile?.occupation;
-
-      if (targetOccupationId) {
-        // Cruzamos con el catálogo global de ocupaciones
-        const matchedOccupation = filterCatalogs.occupations.find(
-          (o: any) => o.id?.toString() === targetOccupationId.toString()
-        );
-
-        if (matchedOccupation) {
-          finalOccupations.push(matchedOccupation);
-        } else if (typeof targetOccupationId === 'object' && targetOccupationId !== null) {
-          finalOccupations.push(targetOccupationId);
-        } else {
-          finalOccupations.push({ name: `Ocupación Asignada (ID: ${targetOccupationId})` });
-        }
-      } else if (Array.isArray(fullProfile?.occupations)) {
-        finalOccupations = fullProfile.occupations;
-      } else if (Array.isArray(fullProfile?.ocupaciones)) {
-        finalOccupations = fullProfile.ocupaciones;
-      }
+      const finalOccupations: any[] = Array.isArray(occupations)
+        ? occupations.map((occupation: any) => ({
+            ...occupation,
+            name:
+              occupation.name ||
+              occupation.occupation_name ||
+              occupation.occupation?.name ||
+              (typeof occupation.occupation === 'string' ? occupation.occupation : undefined) ||
+              `Ocupación ID: ${occupation.occupation_id || occupation.id}`,
+          }))
+        : [];
 
       setPersonDetails({
         ministries: finalMinistries.filter(Boolean),
-        occupations: finalOccupations.filter(Boolean)
+        occupations: finalOccupations.filter(Boolean),
       });
 
     } catch (e) {
@@ -334,7 +340,7 @@ export default function SearchScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.personName}>{item.last_name?.toUpperCase()}, {item.first_name}</Text>
               <Text style={styles.personSubtitle}>
-                DNI: {item.dni || '---'}  •  {age ? `${age} años` : 'Sin edad registrado'}
+                ID: {item.person_id || item.id || '—'}  •  DNI: {item.dni || '---'}  •  {age ? `${age} años` : 'Sin edad registrado'}
               </Text>
             </View>
             <Text style={styles.expandIcon}>{isExpanded ? '▲' : '▼'}</Text>
@@ -345,9 +351,18 @@ export default function SearchScreen() {
         {isExpanded && (
           <View style={styles.expandedContent}>
             <View style={styles.divider} />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <TouchableOpacity style={[styles.toggleBtn, { paddingVertical: 8, paddingHorizontal: 12 }]} onPress={() => {
+                const pid = (item.id || item.person_id);
+                if (pid) router.push({ pathname: '/modify', params: { personId: pid } } as any);
+              }}>
+                <Text style={styles.toggleBtnText}>📝 Modificar</Text>
+              </TouchableOpacity>
+            </View>
             
             <Text style={styles.detailText}>📞 <Text style={styles.bold}>Teléfono:</Text> {activeData.phone_number || activeData.phone || 'No registrado'}</Text>
             <Text style={styles.detailText}>👤 <Text style={styles.bold}>Género:</Text> {activeData.gender || 'No registrado'}</Text>
+            <Text style={styles.detailText}>� <Text style={styles.bold}>Correo:</Text> {activeData.email || 'No registrado'}</Text>
             <Text style={styles.detailText}>📅 <Text style={styles.bold}>Fecha de Nacimiento:</Text> {formatBirthdate(activeData.birthdate)}</Text>
             <Text style={styles.detailText}>⏳ <Text style={styles.bold}>Edad:</Text> {age ? `${age} años` : 'Sin registrar'}</Text>
             <Text style={styles.detailText}>🏡 <Text style={styles.bold}>Barrio:</Text> {activeData.address?.neighborhood || activeData.neighborhood || 'No registrado'}</Text>
@@ -356,6 +371,9 @@ export default function SearchScreen() {
               📍 <Text style={styles.bold}>Calle:</Text>{' '}
               {activeData.address?.street || activeData.address?.street_name || activeData.street || 'No registrada'}
             </Text>
+            <Text style={styles.detailText}>💍 <Text style={styles.bold}>Estado civil:</Text> {activeData.marital_status || 'No registrado'}</Text>
+            <Text style={styles.detailText}>👥 <Text style={styles.bold}>Estado de membresía:</Text> {activeData.membership_status || 'No registrado'}</Text>
+            <Text style={styles.detailText}>🆔 <Text style={styles.bold}>Obra social:</Text> {activeData.social_security || 'No registrado'}</Text>
             
             <Text style={styles.detailText}>
               🚪 <Text style={styles.bold}>Número de Casa:</Text>{' '}
@@ -419,7 +437,7 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.headerTitle}>⛪ Renuevo — Buscador Inteligente</Text>
+      <Text style={styles.headerTitle}>Buscador</Text>
       
       <View style={styles.searchContainerRow}>
         <TextInput
@@ -479,7 +497,59 @@ export default function SearchScreen() {
             </View>
 
             <ScrollView style={styles.modalScroll}>
-              <Text style={styles.filterLabel}>Barrio</Text>
+<Text style={styles.filterLabel}>Ministerio</Text>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={activeFilters.ministry}
+                onValueChange={(v) => setActiveFilters(prev => ({ ...prev, ministry: v }))}
+              >
+                <Picker.Item label="[ Todos los ministerios ]" value="" />
+                {filterCatalogs.ministries.map((m, i) => (
+                  <Picker.Item key={i} label={m.name || `Ministerio ${m.ministry_id || m.id}`} value={(m.ministry_id || m.id).toString()} />
+                ))}
+              </Picker>
+            </View>
+
+            <Text style={styles.filterLabel}>Ocupación</Text>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={activeFilters.occupation}
+                onValueChange={(v) => setActiveFilters(prev => ({ ...prev, occupation: v }))}
+              >
+                <Picker.Item label="[ Todas las ocupaciones ]" value="" />
+                {filterCatalogs.occupations.map((o, i) => (
+                  <Picker.Item key={i} label={o.name || `Ocupación ${o.occupation_id || o.id}`} value={(o.occupation_id || o.id).toString()} />
+                ))}
+              </Picker>
+            </View>
+
+            <Text style={styles.filterLabel}>Estado civil</Text>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={activeFilters.marital_status}
+                onValueChange={(v) => setActiveFilters(prev => ({ ...prev, marital_status: v }))}
+              >
+                <Picker.Item label="Todos" value="" />
+                {filterCatalogs.marital_statuses.map((status, i) => (
+                  <Picker.Item key={i} label={status.name || status} value={status.name || status} />
+                ))}
+              </Picker>
+            </View>
+
+            <Text style={styles.filterLabel}>Estado de membresía</Text>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={activeFilters.membership_status}
+                onValueChange={(v) => setActiveFilters(prev => ({ ...prev, membership_status: v }))}
+              >
+                <Picker.Item label="Todos" value="" />
+                {filterCatalogs.membership_statuses.map((status, i) => (
+                  <Picker.Item key={i} label={status.name || status} value={status.name || status} />
+                ))}
+              </Picker>
+            </View>
+
+            <Text style={styles.filterLabel}>Barrio</Text>
               <View style={styles.pickerBox}>
                 <Picker
                   selectedValue={activeFilters.neighborhood}

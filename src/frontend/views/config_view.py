@@ -16,6 +16,11 @@ class ConfigurationFrame(BaseFrame):
     
     def _build(self):
         """Build the configuration UI with tabbed interface."""
+        top_actions = tk.Frame(self)
+        top_actions.pack(fill="x", padx=6, pady=(6, 0))
+
+        tk.Button(top_actions, text="Refrescar Configuración", command=self._refresh_all_config_lists, bg="#7A4A97", fg="white").pack(side="right")
+
         notebook = ttk.Notebook(self)
         notebook.pack(fill="both", expand=True, padx=6, pady=6)
         
@@ -243,6 +248,22 @@ class ConfigurationFrame(BaseFrame):
         names = [m["name"] for m in self._ministries_data]
         self.area_ministry_combo["values"] = names
 
+    def _refresh_all_config_lists(self):
+        """Refresh all config tabs and comboboxes from current backend state."""
+        try:
+            self.ministry_helper.refresh_list()
+            self._refresh_ministry_combo()
+            self.area_helper.refresh_list()
+            self.marital_helper.refresh_list()
+            self.membership_helper.refresh_list()
+            self.occupation_helper.refresh_list()
+            if hasattr(self, 'consolidation_helper'):
+                self.consolidation_helper.refresh_list()
+            if hasattr(self, 'cdb_helper'):
+                self.cdb_helper.refresh_list()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo refrescar la configuración: {e}")
+
     def _build_consolidation_tab(self, notebook):
         frame = ttk.Frame(notebook)
         notebook.add(frame, text="Consolidación")
@@ -256,7 +277,7 @@ class ConfigurationFrame(BaseFrame):
         listbox = tk.Listbox(frame, width=50, height=15)
         listbox.pack(fill="both", expand=True, padx=6, pady=6)
 
-        helper = ConfigTableHelper(
+        self.consolidation_helper = ConfigTableHelper(
             label="Nivel",
             entry_widget=entry,
             listbox_widget=listbox,
@@ -269,10 +290,10 @@ class ConfigurationFrame(BaseFrame):
             on_change=lambda: ConfigManager.get_instance().publish("consolidation.updated")
         )
 
-        tk.Button(input_frame, text="Agregar", command=helper.add).pack(side="left")
-        tk.Button(input_frame, text="Actualizar", command=helper.update).pack(side="left")
-        tk.Button(input_frame, text="Eliminar", command=helper.delete, bg="#c0392b", fg="white").pack(side="left")
-        helper.refresh_list()
+        tk.Button(input_frame, text="Agregar", command=self.consolidation_helper.add).pack(side="left")
+        tk.Button(input_frame, text="Actualizar", command=self.consolidation_helper.update).pack(side="left")
+        tk.Button(input_frame, text="Eliminar", command=self.consolidation_helper.delete, bg="#c0392b", fg="white").pack(side="left")
+        self.consolidation_helper.refresh_list()
 
     def _build_cdb_tab(self, notebook):
         frame = ttk.Frame(notebook)
@@ -287,7 +308,7 @@ class ConfigurationFrame(BaseFrame):
         listbox = tk.Listbox(frame, width=50, height=15)
         listbox.pack(fill="both", expand=True, padx=6, pady=6)
 
-        helper = ConfigTableHelper(
+        self.cdb_helper = ConfigTableHelper(
             label="CDB",
             entry_widget=entry,
             listbox_widget=listbox,
@@ -300,9 +321,9 @@ class ConfigurationFrame(BaseFrame):
             on_change=lambda: ConfigManager.get_instance().publish("cdb.updated")
         )
 
-        tk.Button(input_frame, text="Agregar", command=helper.add).pack(side="left")
-        tk.Button(input_frame, text="Actualizar", command=helper.update).pack(side="left")
-        tk.Button(input_frame, text="Eliminar", command=helper.delete, bg="#c0392b", fg="white").pack(side="left")
-        helper.refresh_list()
+        tk.Button(input_frame, text="Agregar", command=self.cdb_helper.add).pack(side="left")
+        tk.Button(input_frame, text="Actualizar", command=self.cdb_helper.update).pack(side="left")
+        tk.Button(input_frame, text="Eliminar", command=self.cdb_helper.delete, bg="#c0392b", fg="white").pack(side="left")
+        self.cdb_helper.refresh_list()
 
 __all__ = ["ConfigurationFrame"]
