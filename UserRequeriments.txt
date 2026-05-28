@@ -1,6 +1,6 @@
 - nombre V
 - apellido V 
-fecha de nacimiento V 
+- fecha de nacimiento V 
 - edad V
 - dni V 
 - genero v 
@@ -14,7 +14,7 @@ fecha de nacimiento V
 - consolidacion v 
 - cdb v (tengo que poner "asisto, no asisto, quiero sumarme (seguramente lo  paso de int a text)) 
 - ministerio v 
--* ocupacion profesional F (opciones, quizas tambien en config ) 
+- ocupacion profesional V
 
 
 
