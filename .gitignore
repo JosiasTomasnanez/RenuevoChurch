@@ -25,6 +25,5 @@ __pycache__/
 # Archivos compilados
 *.so
 *.egg-info/
-dist/
 build/
 
