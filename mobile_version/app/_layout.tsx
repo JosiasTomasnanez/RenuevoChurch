@@ -37,7 +37,6 @@ export default function RootLayout() {
 
   // 🔐 EL CANDADO SE MUEVE AL COMPONENTE PADRE
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Platform.OS !== 'web');
-  const [authReady, setAuthReady] = useState<boolean>(Platform.OS !== 'web');
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
 
@@ -46,25 +45,14 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      const savedAuth = window.localStorage.getItem('RENUEVO_WEB_AUTH');
-      if (savedAuth === 'ok') {
-        setIsAuthenticated(true);
-      }
-      setAuthReady(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (loaded && authReady) {
-      // Solo ocultamos el splash screen si ya pasó el login web (o si es Android)
+    if (loaded) {
       if (isAuthenticated || Platform.OS !== 'web') {
         SplashScreen.hideAsync();
       }
     }
-  }, [loaded, authReady, isAuthenticated]);
+  }, [loaded, isAuthenticated]);
 
-  if (!loaded || (Platform.OS === 'web' && !authReady)) {
+  if (!loaded) {
     return null;
   }
 
@@ -78,7 +66,6 @@ export default function RootLayout() {
     }
 
     if (password.trim() === claveSegura) {
-      window.localStorage.setItem('RENUEVO_WEB_AUTH', 'ok');
       setIsAuthenticated(true);
       setLoginError('');
       setPassword('');
