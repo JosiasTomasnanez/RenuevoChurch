@@ -126,10 +126,11 @@ function RootLayoutNav() {
     }
   };
 
-  // 🧱 INTERCEPCIÓN WEB: Si es entorno web y no puso la clave, renderiza este formulario de bloqueo
+  // 🧱 INTERCEPCIÓN WEB DEFINITIVA: Usamos un contenedor absoluto superpuesto
+  // Si es entorno web y no puso la clave, renderiza este bloque y congela las rutas por detrás
   if (!isAuthenticated) {
     return (
-      <View style={styles.container}>
+      <View style={styles.webContainer}>
         <View style={styles.card}>
           <Text style={styles.title}>Renuevo Church</Text>
           <Text style={styles.subtitle}>Gestión Interna - Acceso Web</Text>
@@ -165,9 +166,21 @@ function RootLayoutNav() {
   );
 }
 
-// 🎨 ESTILOS PARA EL FORMULARIO WEB
+// 🎨 ESTILOS ACTUALIZADOS CON BLOCK TOTAL PARA LA WEB
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f3e8ff' },
+  webContainer: { 
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100vw' as any,  // Fuerza a ocupar el ancho real del navegador web
+    height: '100vh' as any, // Fuerza a ocupar el alto real del navegador web
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: '#f3e8ff',
+    zIndex: 99999,          // Se posiciona al frente absoluto impidiendo clics traseros
+  },
   card: { width: '90%', maxWidth: 400, backgroundColor: '#fff', padding: 30, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, alignItems: 'center' },
   title: { fontSize: 26, fontWeight: 'bold', color: '#6b21a8', marginBottom: 5 },
   subtitle: { fontSize: 14, color: '#666', marginBottom: 25 },
