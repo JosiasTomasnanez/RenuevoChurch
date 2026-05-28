@@ -126,11 +126,12 @@ function RootLayoutNav() {
     }
   };
 
-  // 🧱 INTERCEPCIÓN WEB DEFINITIVA: Usamos un contenedor absoluto superpuesto
-  // Si es entorno web y no puso la clave, renderiza este bloque y congela las rutas por detrás
-  if (!isAuthenticated) {
+  // 💥 FILTRO AGRESIVO EXCLUSIVO PARA WEB: 
+  // Si es navegador y no está autenticado, destruimos por completo el retorno del enrutador de Expo.
+  // Al devolver esta estructura aislada, el <Stack> directamente no existe en el DOM web.
+  if (Platform.OS === 'web' && !isAuthenticated) {
     return (
-      <View style={styles.webContainer}>
+      <View style={styles.webAbsoluteLock}>
         <View style={styles.card}>
           <Text style={styles.title}>Renuevo Church</Text>
           <Text style={styles.subtitle}>Gestión Interna - Acceso Web</Text>
@@ -142,7 +143,7 @@ function RootLayoutNav() {
             value={password} 
             onChangeText={setPassword} 
             style={styles.input}
-            onSubmitEditing={handleWebLogin} // Permite ingresar apretando 'Enter' en el teclado
+            onSubmitEditing={handleWebLogin} // Permite ingresar apretando 'Enter'
           />
           
           {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
@@ -155,7 +156,7 @@ function RootLayoutNav() {
     );
   }
 
-  // SI PASA EL ACCESO (O ES ENTORNO ANDROID): Retorna la navegación de pestañas original
+  // SI PASA EL ACCESO (O ES ENTORNO ANDROID): Monta el árbol de navegación real por primera vez
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
@@ -166,20 +167,18 @@ function RootLayoutNav() {
   );
 }
 
-// 🎨 ESTILOS ACTUALIZADOS CON BLOCK TOTAL PARA LA WEB
+// 🎨 ESTILOS MÁXIMA AGRESIVIDAD (Sobrescribe toda la pantalla del navegador de forma fija)
 const styles = StyleSheet.create({
-  webContainer: { 
-    position: 'absolute',
+  webAbsoluteLock: { 
+    position: 'fixed',      // Clava el contenedor e ignora el scroll del navegador
     top: 0,
     left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100vw' as any,  // Fuerza a ocupar el ancho real del navegador web
-    height: '100vh' as any, // Fuerza a ocupar el alto real del navegador web
+    width: '100vw' as any,  // Ocupa el 100% del ancho del viewport de la web
+    height: '100vh' as any, // Ocupa el 100% del alto del viewport de la web
     justifyContent: 'center', 
     alignItems: 'center', 
     backgroundColor: '#f3e8ff',
-    zIndex: 99999,          // Se posiciona al frente absoluto impidiendo clics traseros
+    zIndex: 9999999,        // Prioridad máxima absoluta sobre cualquier elemento raíz web
   },
   card: { width: '90%', maxWidth: 400, backgroundColor: '#fff', padding: 30, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, alignItems: 'center' },
   title: { fontSize: 26, fontWeight: 'bold', color: '#6b21a8', marginBottom: 5 },
