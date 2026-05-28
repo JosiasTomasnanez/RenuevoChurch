@@ -23,3 +23,14 @@ def get_software_version():
         "latest_version": latest,
         "download_url": download
     }
+
+@app.get("/api/version-mobile")
+def get_mobile_software_version():
+    # Render va a mandar estos valores dinámicamente para la app móvil
+    latest_mobile = os.environ.get("MOBILE_LATEST_VERSION", "1.0.0")
+    download_mobile = os.environ.get("MOBILE_DOWNLOAD_URL", "")
+    
+    return {
+        "latest_version": latest_mobile,
+        "download_url": download_mobile
+    }
