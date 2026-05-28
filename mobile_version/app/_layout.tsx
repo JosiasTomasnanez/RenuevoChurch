@@ -3,35 +3,30 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import { Alert, Platform } from 'react-native'; 
+import { useEffect, useState } from 'react'; 
+import { Alert, Platform, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'; 
 import 'react-native-reanimated';
 
 // Importamos las librerías nativas para manejar la actualización
 import * as Application from 'expo-application';
 import * as IntentLauncher from 'expo-intent-launcher';
 
-// ✅ TRUCO FINAL DE TYPESCRIPT: 
-// Importamos el módulo por defecto como 'ExpoFileSystem' y lo renombramos abajo para burlar el error de tipos.
+// Truco final de TypeScript
 import ExpoFileSystem from 'expo-file-system';
 const FileSystem: any = ExpoFileSystem;
 
 // Importamos tu cliente de API modificado
 import { ApiClient } from '../api/api_client'; 
-
 import { useColorScheme } from '@/components/useColorScheme';
 
 export {
-  // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
   initialRouteName: '(tabs)',
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -40,7 +35,6 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -61,9 +55,14 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
-  // 🚀 LÓGICA DE AUTO-UPDATE INTEGRADA
+  // 🔐 ESTADO PARA EL LOCK WEB (Solo pide contraseña)
+  // Si es Android, inicia en true (pasa directo). Si es Web, inicia bloqueado (false).
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Platform.OS !== 'web');
+  const [password, setPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string>('');
+
+  // 🚀 LÓGICA DE AUTO-UPDATE INTEGRADA (Solo Android)
   useEffect(() => {
-    // Solo ejecutamos el chequeo si es un dispositivo Android real o emulador
     if (Platform.OS === 'android') {
       ejecutarChequeoDeVersion();
     }
@@ -71,26 +70,19 @@ function RootLayoutNav() {
 
   const ejecutarChequeoDeVersion = async () => {
     try {
-      // 1. Obtener la versión actual instalada (lee el 'version' de tu app.json)
       const versionActual = Application.nativeApplicationVersion;
-
-      // 2. Consultar a tu servidor en Render
       const datosServidor = await ApiClient.checkMobileVersion();
-      if (!datosServidor) return; // Si el servidor falla o no hay internet, no frena la app
+      if (!datosServidor) return;
 
       const { latestVersion, downloadUrl } = datosServidor;
 
-      // 3. Comparar versiones
       if (versionActual !== latestVersion && downloadUrl) {
         Alert.alert(
           "¡Nueva versión disponible!",
           `Hay una actualización disponible (v${latestVersion}). ¿Querés instalarla ahora para tener las últimas mejoras?`,
           [
             { text: "Más tarde", style: "cancel" },
-            { 
-              text: "Actualizar", 
-              onPress: () => descargarEInstalarApk(downloadUrl) 
-            }
+            { text: "Actualizar", onPress: () => descargarEInstalarApk(downloadUrl) }
           ]
         );
       }
@@ -102,22 +94,15 @@ function RootLayoutNav() {
   const descargarEInstalarApk = async (urlDeGitHub: string) => {
     try {
       Alert.alert("Descargando", "La actualización se está bajando desde GitHub, aguarda un momento...");
-
       const nombreArchivo = "renuevo_update.apk";
-      
-      // ✅ Volvemos a usar el formato original que lee los métodos dinámicamente
       const rutaDestino = `${FileSystem.cacheDirectory}${nombreArchivo}`;
-
-      // 4. Descargar el archivo pesado desde los servidores de GitHub (Gratis)
       const resultadoDescarga = await FileSystem.downloadAsync(urlDeGitHub, rutaDestino);
 
       if (resultadoDescarga.status === 200) {
         const contentUri = await FileSystem.getContentUriAsync(resultadoDescarga.uri);
-
-        // 5. Lanzar el instalador de paquetes nativo de Android
         await IntentLauncher.startActivityAsync('android.intent.action.INSTALL_PACKAGE', {
           data: contentUri,
-          flags: 1, // Da permisos de lectura temporales para abrir el APK
+          flags: 1,
           type: 'application/vnd.android.package-archive'
         });
       } else {
@@ -125,13 +110,51 @@ function RootLayoutNav() {
       }
     } catch (error) {
       console.error("Error al intentar instalar el APK:", error);
-      Alert.alert(
-        "Error de instalación", 
-        "Hubo un problema. Si es la primera vez, asegúrate de dar permisos para instalar aplicaciones desconocidas si el sistema lo solicita."
-      );
+      Alert.alert("Error de installation", "Hubo un problema al instalar.");
     }
   };
 
+  const handleWebLogin = () => {
+    // Lee la contraseña segura inyectada desde el panel de Vercel
+    const claveSegura = process.env.EXPO_PUBLIC_WEB_PASSWORD;
+
+    if (password === claveSegura) {
+      setIsAuthenticated(true);
+    } else {
+      setLoginError("Contraseña incorrecta para el acceso Web.");
+      setPassword('');
+    }
+  };
+
+  // 🧱 INTERCEPCIÓN WEB: Si es entorno web y no puso la clave, renderiza este formulario de bloqueo
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Renuevo Church</Text>
+          <Text style={styles.subtitle}>Gestión Interna - Acceso Web</Text>
+          
+          <TextInput 
+            placeholder="Introduce la contraseña de la iglesia" 
+            placeholderTextColor="#999"
+            secureTextEntry 
+            value={password} 
+            onChangeText={setPassword} 
+            style={styles.input}
+            onSubmitEditing={handleWebLogin} // Permite ingresar apretando 'Enter' en el teclado
+          />
+          
+          {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
+          
+          <TouchableOpacity style={styles.button} onPress={handleWebLogin}>
+            <Text style={styles.buttonText}>Acceder al Sistema</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // SI PASA EL ACCESO (O ES ENTORNO ANDROID): Retorna la navegación de pestañas original
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
@@ -141,3 +164,15 @@ function RootLayoutNav() {
     </ThemeProvider>
   );
 }
+
+// 🎨 ESTILOS PARA EL FORMULARIO WEB
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f3e8ff' },
+  card: { width: '90%', maxWidth: 400, backgroundColor: '#fff', padding: 30, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, alignItems: 'center' },
+  title: { fontSize: 26, fontWeight: 'bold', color: '#6b21a8', marginBottom: 5 },
+  subtitle: { fontSize: 14, color: '#666', marginBottom: 25 },
+  input: { width: '100%', height: 45, borderColor: '#ccc', borderWidth: 1, borderRadius: 6, marginBottom: 15, paddingHorizontal: 12, backgroundColor: '#fafafa', color: '#000', textAlign: 'center' },
+  errorText: { color: '#dc2626', marginBottom: 15, fontSize: 14, fontWeight: '500', textAlign: 'center' },
+  button: { width: '100%', backgroundColor: '#6b21a8', height: 45, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
+});
