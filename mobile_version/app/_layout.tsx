@@ -31,9 +31,14 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'), // Ajustado por si acaso la ruta relativa fallaba
     ...FontAwesome.font,
   });
+
+  // 🔐 EL CANDADO SE MUEVE AL COMPONENTE PADRE
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Platform.OS !== 'web');
+  const [password, setPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string>('');
 
   useEffect(() => {
     if (error) throw error;
@@ -41,25 +46,63 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      // Solo ocultamos el splash screen si ya pasó el login web (o si es Android)
+      if (isAuthenticated) {
+        SplashScreen.hideAsync();
+      }
     }
-  }, [loaded]);
+  }, [loaded, isAuthenticated]);
 
   if (!loaded) {
     return null;
   }
 
+  const handleWebLogin = () => {
+    const claveSegura = process.env.EXPO_PUBLIC_WEB_PASSWORD;
+
+    if (password === claveSegura) {
+      setIsAuthenticated(true);
+    } else {
+      setLoginError("Contraseña incorrecta para el acceso Web.");
+      setPassword('');
+    }
+  };
+
+  // 💥 CORTE RADICAL: Si es Web y no está autenticado, mostramos el login AQUÍ MISMO.
+  // Al retornar esto acá, "<RootLayoutNav />" NUNCA se ejecuta, por ende Expo Router está totalmente muerto.
+  if (Platform.OS === 'web' && !isAuthenticated) {
+    return (
+      <View style={styles.webAbsoluteLock}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Renuevo Church</Text>
+          <Text style={styles.subtitle}>Gestión Interna - Acceso Web</Text>
+          
+          <TextInput 
+            placeholder="Introduce la contraseña de la iglesia" 
+            placeholderTextColor="#999"
+            secureTextEntry 
+            value={password} 
+            onChangeText={setPassword} 
+            style={styles.input}
+            onSubmitEditing={handleWebLogin}
+          />
+          
+          {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
+          
+          <TouchableOpacity style={styles.button} onPress={handleWebLogin}>
+            <Text style={styles.buttonText}>Acceder al Sistema</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Si es Android, o si ya puso la contraseña en la Web, recién ahí dejamos que cargue el resto
   return <RootLayoutNav />;
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-
-  // 🔐 ESTADO PARA EL LOCK WEB (Solo pide contraseña)
-  // Si es Android, inicia en true (pasa directo). Si es Web, inicia bloqueado (false).
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Platform.OS !== 'web');
-  const [password, setPassword] = useState<string>('');
-  const [loginError, setLoginError] = useState<string>('');
 
   // 🚀 LÓGICA DE AUTO-UPDATE INTEGRADA (Solo Android)
   useEffect(() => {
@@ -87,7 +130,7 @@ function RootLayoutNav() {
         );
       }
     } catch (err) {
-      console.error("Error en el flujo de verificación de versión móvil:", err);
+      console.error("Error en el flujo de verificación de velocidad móvil:", err);
     }
   };
 
@@ -114,49 +157,6 @@ function RootLayoutNav() {
     }
   };
 
-  const handleWebLogin = () => {
-    // Lee la contraseña segura inyectada desde el panel de Vercel
-    const claveSegura = process.env.EXPO_PUBLIC_WEB_PASSWORD;
-
-    if (password === claveSegura) {
-      setIsAuthenticated(true);
-    } else {
-      setLoginError("Contraseña incorrecta para el acceso Web.");
-      setPassword('');
-    }
-  };
-
-  // 💥 FILTRO AGRESIVO EXCLUSIVO PARA WEB: 
-  // Si es navegador y no está autenticado, destruimos por completo el retorno del enrutador de Expo.
-  // Al devolver esta estructura aislada, el <Stack> directamente no existe en el DOM web.
-  if (Platform.OS === 'web' && !isAuthenticated) {
-    return (
-      <View style={styles.webAbsoluteLock}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Renuevo Church</Text>
-          <Text style={styles.subtitle}>Gestión Interna - Acceso Web</Text>
-          
-          <TextInput 
-            placeholder="Introduce la contraseña de la iglesia" 
-            placeholderTextColor="#999"
-            secureTextEntry 
-            value={password} 
-            onChangeText={setPassword} 
-            style={styles.input}
-            onSubmitEditing={handleWebLogin} // Permite ingresar apretando 'Enter'
-          />
-          
-          {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
-          
-          <TouchableOpacity style={styles.button} onPress={handleWebLogin}>
-            <Text style={styles.buttonText}>Acceder al Sistema</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // SI PASA EL ACCESO (O ES ENTORNO ANDROID): Monta el árbol de navegación real por primera vez
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
@@ -167,18 +167,18 @@ function RootLayoutNav() {
   );
 }
 
-// 🎨 ESTILOS MÁXIMA AGRESIVIDAD (Sobrescribe toda la pantalla del navegador de forma fija)
+// 🎨 ESTILOS MÁXIMA AGRESIVIDAD
 const styles = StyleSheet.create({
   webAbsoluteLock: { 
-    position: 'fixed',      // Clava el contenedor e ignora el scroll del navegador
+    position: 'fixed',
     top: 0,
     left: 0,
-    width: '100vw' as any,  // Ocupa el 100% del ancho del viewport de la web
-    height: '100vh' as any, // Ocupa el 100% del alto del viewport de la web
+    width: '100vw' as any,
+    height: '100vh' as any,
     justifyContent: 'center', 
     alignItems: 'center', 
     backgroundColor: '#f3e8ff',
-    zIndex: 9999999,        // Prioridad máxima absoluta sobre cualquier elemento raíz web
+    zIndex: 9999999,
   },
   card: { width: '90%', maxWidth: 400, backgroundColor: '#fff', padding: 30, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, alignItems: 'center' },
   title: { fontSize: 26, fontWeight: 'bold', color: '#6b21a8', marginBottom: 5 },
