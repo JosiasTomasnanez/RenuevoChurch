@@ -1,10 +1,10 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import 'react-native-reanimated';
 
 // Importamos las librerías nativas para manejar la actualización
@@ -45,8 +45,6 @@ export function useAuth() {
 }
 
 export default function RootLayout() {
-  const router = useRouter();
-  
   // ✅ ADIÓS COMPILACIONES FALLIDAS: Sacamos el require del .ttf que rompía Metro
   const [loaded, error] = useFonts({
     ...FontAwesome.font,
@@ -64,30 +62,12 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  const pathname = usePathname();
-
-  // 🛡️ GUARDIÁN DE RUTAS INTERNO
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-
-    const routeIsLogin = pathname === '/login';
-
-    if (!isAuthenticated && !routeIsLogin) {
-      router.replace('/login');
-      return;
-    }
-
-    if (isAuthenticated && routeIsLogin) {
-      router.replace('/');
-    }
-  }, [isAuthenticated, pathname, router]);
-
   if (!loaded) {
     return null;
   }
 
-  if (isWeb && !isAuthenticated && pathname !== '/login') {
-    return <WebLoginScreen onAuthenticated={() => setIsAuthenticated(true)} router={router} />;
+  if (isWeb && !isAuthenticated) {
+    return <WebLoginScreen onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
   const authContextValue = useMemo(
@@ -158,16 +138,9 @@ function RootLayoutNav({ isAuthenticated }: { isAuthenticated: boolean }) {
     }
   };
 
-  // 💥 FILTRO AGRESIVO EN EL ENRUTADOR:
-  // Si está en la Web y no está autenticado, las pestañas '(tabs)' directamente NO SE DEFINEN en el Stack.
   return (
-    <Stack initialRouteName={isWeb ? 'login' : '(tabs)'}>
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      
-      {(!isWeb || isAuthenticated) && (
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      )}
-      
+    <Stack initialRouteName="(tabs)">
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
     </Stack>
   );
@@ -175,36 +148,31 @@ function RootLayoutNav({ isAuthenticated }: { isAuthenticated: boolean }) {
 
 function WebLoginScreen({
   onAuthenticated,
-  router,
 }: {
   onAuthenticated: () => void;
-  router: ReturnType<typeof useRouter>;
 }) {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      router.replace('/');
-    }
-  }, [router]);
+  const [statusMessage, setStatusMessage] = useState('');
 
   const handleLogin = () => {
     const claveSegura = process.env.EXPO_PUBLIC_WEB_PASSWORD;
 
     if (!claveSegura) {
       setLoginError('Error de configuración: falta la contraseña de acceso web.');
+      setStatusMessage('');
       setPassword('');
       return;
     }
 
     if (password.trim() === claveSegura) {
-      onAuthenticated();
-      router.replace('/');
+      setStatusMessage('Contraseña correcta. Cargando...');
       setLoginError('');
       setPassword('');
+      onAuthenticated();
     } else {
       setLoginError('Contraseña incorrecta para el acceso Web.');
+      setStatusMessage('');
       setPassword('');
     }
   };
@@ -229,10 +197,11 @@ function WebLoginScreen({
         />
 
         {loginError ? <Text style={webLoginStyles.errorText}>{loginError}</Text> : null}
+        {statusMessage ? <Text style={webLoginStyles.statusText}>{statusMessage}</Text> : null}
 
-        <TouchableOpacity style={webLoginStyles.button} onPress={handleLogin}>
+        <Pressable style={webLoginStyles.button} onPress={handleLogin}>
           <Text style={webLoginStyles.buttonText}>Ingresar</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -283,6 +252,11 @@ const webLoginStyles = StyleSheet.create({
   },
   errorText: {
     color: '#dc2626',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  statusText: {
+    color: '#444',
     marginBottom: 16,
     textAlign: 'center',
   },
