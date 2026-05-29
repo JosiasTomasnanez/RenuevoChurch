@@ -23,8 +23,10 @@ export {
   ErrorBoundary,
 } from 'expo-router';
 
+const isWeb = Platform.OS === 'web';
+
 export const unstable_settings = {
-  initialRouteName: Platform.OS === 'web' ? 'login' : '(tabs)',
+  initialRouteName: isWeb ? 'login' : '(tabs)',
 };
 
 SplashScreen.preventAutoHideAsync();
@@ -153,7 +155,7 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack initialRouteName={isWeb ? 'login' : '(tabs)'}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

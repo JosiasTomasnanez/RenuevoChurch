@@ -44,12 +44,14 @@ export default function LoginPage() {
         <TextInput
           placeholder="Contraseña"
           placeholderTextColor="#999"
-          secureTextEntry
           value={password}
           onChangeText={setPassword}
           style={styles.input}
           onSubmitEditing={handleLogin}
           autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect={false}
+          textContentType="none"
         />
 
         {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
