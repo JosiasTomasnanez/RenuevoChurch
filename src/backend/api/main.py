@@ -22,6 +22,14 @@ container = create_app()
 app.include_router(people_router.router)
 app.include_router(config_router.router)
 
+@app.get("/")
+def root():
+    """Health check endpoint"""
+    return {
+        "status": "ok",
+        "message": "Renuevo API is running"
+    }
+
 @app.get("/api/version")
 def get_software_version():
     latest = os.environ.get("LATEST_VERSION", "1.0.0")
