@@ -74,6 +74,7 @@ export default function RootLayout() {
 
     if (!isAuthenticated && !routeIsLogin) {
       router.replace('/login');
+      return;
     }
 
     if (isAuthenticated && routeIsLogin) {
@@ -82,6 +83,10 @@ export default function RootLayout() {
   }, [isAuthenticated, pathname, router]);
 
   if (!loaded) {
+    return null;
+  }
+
+  if (isWeb && !isAuthenticated && pathname !== '/login') {
     return null;
   }
 
