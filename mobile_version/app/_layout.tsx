@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import 'react-native-reanimated';
 
 // Importamos las librerías nativas para manejar la actualización
@@ -87,7 +87,7 @@ export default function RootLayout() {
   }
 
   if (isWeb && !isAuthenticated && pathname !== '/login') {
-    return null;
+    return <WebLoginScreen onAuthenticated={() => setIsAuthenticated(true)} router={router} />;
   }
 
   const authContextValue = useMemo(
@@ -172,3 +172,131 @@ function RootLayoutNav({ isAuthenticated }: { isAuthenticated: boolean }) {
     </Stack>
   );
 }
+
+function WebLoginScreen({
+  onAuthenticated,
+  router,
+}: {
+  onAuthenticated: () => void;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      router.replace('/');
+    }
+  }, [router]);
+
+  const handleLogin = () => {
+    const claveSegura = process.env.EXPO_PUBLIC_WEB_PASSWORD;
+
+    if (!claveSegura) {
+      setLoginError('Error de configuración: falta la contraseña de acceso web.');
+      setPassword('');
+      return;
+    }
+
+    if (password.trim() === claveSegura) {
+      onAuthenticated();
+      router.replace('/');
+      setLoginError('');
+      setPassword('');
+    } else {
+      setLoginError('Contraseña incorrecta para el acceso Web.');
+      setPassword('');
+    }
+  };
+
+  return (
+    <View style={webLoginStyles.container}>
+      <View style={webLoginStyles.card}>
+        <Text style={webLoginStyles.title}>Renuevo Church</Text>
+        <Text style={webLoginStyles.subtitle}>Acceso Web Interno</Text>
+
+        <TextInput
+          placeholder="Contraseña"
+          placeholderTextColor="#999"
+          value={password}
+          onChangeText={setPassword}
+          style={webLoginStyles.input}
+          onSubmitEditing={handleLogin}
+          autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect={false}
+          textContentType="none"
+        />
+
+        {loginError ? <Text style={webLoginStyles.errorText}>{loginError}</Text> : null}
+
+        <TouchableOpacity style={webLoginStyles.button} onPress={handleLogin}>
+          <Text style={webLoginStyles.buttonText}>Ingresar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const webLoginStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3e8ff',
+    padding: 20,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff',
+    padding: 28,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#6b21a8',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  input: {
+    width: '100%',
+    height: 48,
+    borderColor: '#d1d5db',
+    borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 18,
+    paddingHorizontal: 14,
+    backgroundColor: '#fafafa',
+    color: '#000',
+  },
+  errorText: {
+    color: '#dc2626',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  button: {
+    width: '100%',
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#6b21a8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+});
