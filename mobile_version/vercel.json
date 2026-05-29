@@ -1,6 +1,13 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build"
+    }
+  ],
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/(.*)",
