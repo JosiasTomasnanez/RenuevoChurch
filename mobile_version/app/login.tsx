@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from './_layout';
 
 export default function LoginPage() {
@@ -8,6 +8,7 @@ export default function LoginPage() {
   const { setIsAuthenticated } = useAuth();
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
@@ -19,18 +20,21 @@ export default function LoginPage() {
     const claveSegura = process.env.EXPO_PUBLIC_WEB_PASSWORD;
 
     if (!claveSegura) {
-      setLoginError('Error de configuración: falta la contraseña de acceso web.');
+      setStatusMessage('Error de configuración: falta EXPO_PUBLIC_WEB_PASSWORD.');
+      setLoginError('');
       setPassword('');
       return;
     }
 
     if (password.trim() === claveSegura) {
       setIsAuthenticated(true);
-      router.replace('/');
+      setStatusMessage('Login correcto, redirigiendo...');
       setLoginError('');
       setPassword('');
+      router.replace('/');
     } else {
       setLoginError('Contraseña incorrecta para el acceso Web.');
+      setStatusMessage('');
       setPassword('');
     }
   };
@@ -55,10 +59,11 @@ export default function LoginPage() {
         />
 
         {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
+        {statusMessage ? <Text style={styles.statusText}>{statusMessage}</Text> : null}
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Pressable style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Ingresar</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -119,6 +124,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#6b21a8',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  statusText: {
+    color: '#444',
+    marginBottom: 14,
+    textAlign: 'center',
   },
   buttonText: {
     color: '#fff',
