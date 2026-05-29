@@ -11,7 +11,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
-      router.replace({ pathname: '/' });
+      router.replace('/');
     }
   }, [router]);
 
@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     if (password.trim() === claveSegura) {
       setIsAuthenticated(true);
-      router.replace({ pathname: '/' });
+      router.replace('/');
       setLoginError('');
       setPassword('');
     } else {

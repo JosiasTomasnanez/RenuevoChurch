@@ -24,7 +24,7 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: '(tabs)',
+  initialRouteName: Platform.OS === 'web' ? 'login' : '(tabs)',
 };
 
 SplashScreen.preventAutoHideAsync();
@@ -69,11 +69,11 @@ export default function RootLayout() {
     const routeIsLogin = pathname === '/login';
 
     if (!isAuthenticated && !routeIsLogin) {
-      router.replace({ pathname: '/login' });
+      router.replace('/login');
     }
 
     if (isAuthenticated && routeIsLogin) {
-      router.replace({ pathname: '/' });
+      router.replace('/');
     }
   }, [isAuthenticated, pathname, router]);
 
