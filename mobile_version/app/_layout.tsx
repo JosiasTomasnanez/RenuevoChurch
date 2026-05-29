@@ -1,10 +1,10 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react'; 
-import { Alert, Platform, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'; 
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { Alert, Platform, StyleSheet } from 'react-native';
 import 'react-native-reanimated';
 
 // Importamos las librerías nativas para manejar la actualización
@@ -29,16 +29,27 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
+const AuthContext = createContext<{
+  isAuthenticated: boolean;
+  setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>;
+} | null>(null);
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe usarse dentro de AuthContext');
+  }
+  return context;
+}
+
 export default function RootLayout() {
+  const router = useRouter();
   const [loaded, error] = useFonts({
-    SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'), // Ajustado por si acaso la ruta relativa fallaba
+    SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
 
-  // 🔐 EL CANDADO SE MUEVE AL COMPONENTE PADRE
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Platform.OS !== 'web');
-  const [password, setPassword] = useState<string>('');
-  const [loginError, setLoginError] = useState<string>('');
 
   useEffect(() => {
     if (error) throw error;
@@ -46,66 +57,42 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      if (isAuthenticated || Platform.OS !== 'web') {
-        SplashScreen.hideAsync();
-      }
+      SplashScreen.hideAsync();
     }
-  }, [loaded, isAuthenticated]);
+  }, [loaded]);
+
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const routeIsLogin = pathname === '/login';
+
+    if (!isAuthenticated && !routeIsLogin) {
+      router.replace({ pathname: '/login' });
+    }
+
+    if (isAuthenticated && routeIsLogin) {
+      router.replace({ pathname: '/' });
+    }
+  }, [isAuthenticated, pathname, router]);
 
   if (!loaded) {
     return null;
   }
 
-  const handleWebLogin = () => {
-    const claveSegura = process.env.EXPO_PUBLIC_WEB_PASSWORD;
+  const authContextValue = useMemo(
+    () => ({ isAuthenticated, setIsAuthenticated }),
+    [isAuthenticated]
+  );
 
-    if (!claveSegura) {
-      setLoginError('Error de configuración: falta la contraseña de acceso web.');
-      setPassword('');
-      return;
-    }
-
-    if (password.trim() === claveSegura) {
-      setIsAuthenticated(true);
-      setLoginError('');
-      setPassword('');
-    } else {
-      setLoginError('Contraseña incorrecta para el acceso Web.');
-      setPassword('');
-    }
-  };
-
-  // 💥 CORTE RADICAL: Si es Web y no está autenticado, mostramos el login AQUÍ MISMO.
-  // Al retornar esto acá, "<RootLayoutNav />" NUNCA se ejecuta, por ende Expo Router está totalmente muerto.
-  if (Platform.OS === 'web' && !isAuthenticated) {
-    return (
-      <View style={styles.webAbsoluteLock}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Renuevo Church</Text>
-          <Text style={styles.subtitle}>Gestión Interna - Acceso Web</Text>
-          
-          <TextInput 
-            placeholder="Introduce la contraseña de la iglesia" 
-            placeholderTextColor="#999"
-            secureTextEntry 
-            value={password} 
-            onChangeText={setPassword} 
-            style={styles.input}
-            onSubmitEditing={handleWebLogin}
-          />
-          
-          {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
-          
-          <TouchableOpacity style={styles.button} onPress={handleWebLogin}>
-            <Text style={styles.buttonText}>Acceder al Sistema</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // Si es Android, o si ya puso la contraseña en la Web, recién ahí dejamos que cargue el resto
-  return <RootLayoutNav />;
+  return (
+    <AuthContext.Provider value={authContextValue}>
+      <ThemeProvider value={useColorScheme() === 'dark' ? DarkTheme : DefaultTheme}>
+        <RootLayoutNav />
+      </ThemeProvider>
+    </AuthContext.Provider>
+  );
 }
 
 function RootLayoutNav() {
@@ -167,6 +154,7 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
