@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, StyleSheet } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import 'react-native-reanimated';
 
 // Importamos las librerías nativas para manejar la actualización
@@ -46,8 +46,9 @@ export function useAuth() {
 
 export default function RootLayout() {
   const router = useRouter();
+  
+  // ✅ ADIÓS COMPILACIONES FALLIDAS: Sacamos el require del .ttf que rompía Metro
   const [loaded, error] = useFonts({
-    SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
 
@@ -65,6 +66,7 @@ export default function RootLayout() {
 
   const pathname = usePathname();
 
+  // 🛡️ GUARDIÁN DE RUTAS INTERNO
   useEffect(() => {
     if (Platform.OS !== 'web') return;
 
@@ -91,15 +93,13 @@ export default function RootLayout() {
   return (
     <AuthContext.Provider value={authContextValue}>
       <ThemeProvider value={useColorScheme() === 'dark' ? DarkTheme : DefaultTheme}>
-        <RootLayoutNav />
+        <RootLayoutNav isAuthenticated={isAuthenticated} />
       </ThemeProvider>
     </AuthContext.Provider>
   );
 }
 
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
+function RootLayoutNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   // 🚀 LÓGICA DE AUTO-UPDATE INTEGRADA (Solo Android)
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -153,35 +153,17 @@ function RootLayoutNav() {
     }
   };
 
+  // 💥 FILTRO AGRESIVO EN EL ENRUTADOR:
+  // Si está en la Web y no está autenticado, las pestañas '(tabs)' directamente NO SE DEFINEN en el Stack.
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack initialRouteName={isWeb ? 'login' : '(tabs)'}>
-        <Stack.Screen name="login" options={{ headerShown: false }} />
+    <Stack initialRouteName={isWeb ? 'login' : '(tabs)'}>
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      
+      {(!isWeb || isAuthenticated) && (
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+      )}
+      
+      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+    </Stack>
   );
 }
-
-// 🎨 ESTILOS MÁXIMA AGRESIVIDAD
-const styles = StyleSheet.create({
-  webAbsoluteLock: { 
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100vw' as any,
-    height: '100vh' as any,
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: '#f3e8ff',
-    zIndex: 9999999,
-  },
-  card: { width: '90%', maxWidth: 400, backgroundColor: '#fff', padding: 30, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, alignItems: 'center' },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#6b21a8', marginBottom: 5 },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 25 },
-  input: { width: '100%', height: 45, borderColor: '#ccc', borderWidth: 1, borderRadius: 6, marginBottom: 15, paddingHorizontal: 12, backgroundColor: '#fafafa', color: '#000', textAlign: 'center' },
-  errorText: { color: '#dc2626', marginBottom: 15, fontSize: 14, fontWeight: '500', textAlign: 'center' },
-  button: { width: '100%', backgroundColor: '#6b21a8', height: 45, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
-});
