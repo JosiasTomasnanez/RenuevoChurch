@@ -8,6 +8,7 @@ import urllib.request
 import json             
 import os              
 import subprocess      
+import tempfile  # <-- Importación segura añadida para el manejo de directorios temporales
 
 from src.frontend.api.people_api import PeopleAPI
 from src.frontend.api.config_api import ConfigAPI
@@ -85,13 +86,14 @@ def _build_main_window():
                             temp_dir = os.environ.get("TEMP", os.path.expanduser("~"))
                             installer_path = os.path.join(temp_dir, "RenuevoChurch_Setup_Update.exe")
                         else:  # Linux / MacOS
-                            temp_dir = "/tmp"
+                            # Se utiliza tempfile de manera segura evitando "/tmp" explícito
+                            temp_dir = tempfile.gettempdir()
                             installer_path = os.path.join(temp_dir, "RenuevoChurch_Update.sh")
                             
                         urllib.request.urlretrieve(download_url, installer_path)
                         
                         if os.name != "nt":
-                            os.chmod(installer_path, 0o755)
+                            os.chmod(installer_path, 0o700)
                             
                         self.after(0, lambda: self.status_lbl.config(text="Instalando y reiniciando...", fg="green"))
                         time.sleep(1)
